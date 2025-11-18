@@ -64,7 +64,7 @@ fi
 PARTNER_ID="$(getPartnerId)"
 
 if [ -f /lib/rdk/mtlsUtils.sh ]; then
-    if [ "x$BOX_TYPE" = "xSR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]; then
+    if [ "x$BOX_TYPE" = "xSR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ]; then
         echo_t "XCONF: calling getMtlsCreds"
         CERT="`getMtlsCreds ${BOX_TYPE}_firmwareDwnld.sh`"
     else
@@ -680,7 +680,7 @@ getFirmwareUpgDetail()
             retry_flag=0
 			
 	    OUTPUT="/tmp/XconfOutput.txt" 
-	    if [ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SE501" ] || [ "$BOX_TYPE" = "WNXL11BWL" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]; then #case insensitive option is not working for sed version available in hub4
+	    if [ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SE501" ] || [ "$BOX_TYPE" = "WNXL11BWL" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ]; then #case insensitive option is not working for sed version available in hub4
 	        cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/g' | sed -r 's/\"\:(false)($)/\|false/g' | sed -r 's/\"\:(null)($)/\|\1/g' | sed -r 's/\"\:(-?[0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
 	    else
                 cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:(-?[0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
@@ -688,7 +688,7 @@ getFirmwareUpgDetail()
 
 	    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
 
-            if ([ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]) && [ "$firmwareDownloadProtocol" != "" ];then
+            if ([ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ]) && [ "$firmwareDownloadProtocol" != "" ];then
                 dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadProtocol string "$firmwareDownloadProtocol"
             fi
 
@@ -1527,7 +1527,7 @@ do
                   CERT=$(echo "$CERT" | sed 's/--config \/dev\/stdin//g')
               fi
               #Use the MTLS certificates for all platforms"
-              if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]; then
+              if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ]; then
                   XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$CERT"
               else
                   XconfHttpDl set_http_url " $CERT $firmwareLocation/$firmwareFilename " "$firmwareFilename" complete_url
