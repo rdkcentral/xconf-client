@@ -567,11 +567,11 @@ getFirmwareUpgDetail()
                 echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
 
                 # Check if xconf returned any bundles to update
-                # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
+                # If so, trigger /usr/bin/rdm -x to process it
                 if [ -n "$dlCertBundle" ]; then
-                    echo_t "XCONF SCRIPT : Calling /etc/rdm/rdmBundleMgr.sh to process bundle update" >> $XCONF_LOG_FILE
-                    (sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
-                    echo_t "XCONF SCRIPT : /etc/rdm/rdmBundleMgr.sh started in background" >> $XCONF_LOG_FILE
+                    echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
+                    (/usr/bin/rdm -x "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
 
            	# Check if a newer version was returned in the response
