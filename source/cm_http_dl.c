@@ -636,10 +636,12 @@ int main(int argc,char *argv[])
     }
     else if (type == HTTP_DOWNLOAD)
     {
-        if(can_proceed_fw_download()){
-            printf("We can proceed with fw_download\n");
-            http_status = HTTP_Download();
-        }
+        if(can_proceed_fw_download() == 0){
+            printf("Available memory is not enough to proceed with firmware download\n");
+        }else{
+			http_status = HTTP_Download();
+		}
+		
         // The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached
         // For 200, return SUCCESS, else FAILURE and retry in the next window
         if(http_status == 200)
