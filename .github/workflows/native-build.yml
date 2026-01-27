@@ -1,4 +1,4 @@
-name: Build Xconf Agent Component in Native Environment
+name: Build Xconf Client Component in Native Environment
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ main, 'sprint/**', 'release/**', topic/RDK*, develop ]
 
 jobs:
-  build-moca-agent-on-pr:
-    name: Build moca-agent component in github rdkcentral
+  build-xconf-client-on-pr:
+    name: Build xconf-client component in github rdkcentral
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/rdkcentral/docker-rdk-ci:latest
