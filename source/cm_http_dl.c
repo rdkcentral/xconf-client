@@ -636,7 +636,7 @@ int main(int argc,char *argv[])
     }
     else if (type == HTTP_DOWNLOAD)
     {
-        if(can_proceed_fw_download() == 0){
+        if(can_proceed_fw_download() == FW_DWNLD_MEMCHK_NOT_ENOUGH_MEM){
             printf("Available memory is not enough to proceed with firmware download\n");
         }else{
 			http_status = HTTP_Download();
