@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <telemetry_busmessage_sender.h>
+#include "fw_download_check.h"
 #include <syscfg/syscfg.h>
 
 #include "cm_hal.h"
