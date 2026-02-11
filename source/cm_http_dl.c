@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <telemetry_busmessage_sender.h>
+#include "fw_download_check.h"
 #include <syscfg/syscfg.h>
 
 #include "cm_hal.h"
@@ -636,8 +637,12 @@ int main(int argc,char *argv[])
     }
     else if (type == HTTP_DOWNLOAD)
     {
-        http_status = HTTP_Download();
-
+        if(can_proceed_fw_download() == FW_DWNLD_MEMCHK_NOT_ENOUGH_MEM){
+            printf("Available memory is not enough to proceed with firmware download\n");
+        }else{
+			http_status = HTTP_Download();
+		}
+		
         // The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached
         // For 200, return SUCCESS, else FAILURE and retry in the next window
         if(http_status == 200)
