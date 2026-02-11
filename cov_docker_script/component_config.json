@@ -47,6 +47,22 @@
         }
       },
       {
+        "name": "miscellaneous-broadband",
+        "repo": "https://github.com/rdkcentral/miscellaneous-broadband.git",
+        "branch": "develop",
+        "header_paths": [
+          { "source": "source/FwDownloadChk", "destination": "$HOME/usr/include/rdkb" }
+        ],
+        "build": {
+          "type": "commands",
+          "commands": [
+            "./autogen.sh",
+            "./configure",
+            "make -C source/FwDownloadChk CPPFLAGS=\"-I$HOME/usr/include/rdkb\" LDFLAGS=\"-L$HOME/usr/local/lib\""
+          ]
+        }
+      },
+      {
         "name": "libSyscallWrapper",
         "repo": "https://github.com/rdkcentral/libSyscallWrapper.git",
         "branch": "develop",
