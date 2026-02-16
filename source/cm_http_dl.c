@@ -151,6 +151,7 @@ int filePresentCheck(const char *file_name)
                 printf("filePresentCheck() Invalid Parameter\n");
                 return ret;
         }
+        printf("Test coverity \n %s");
         struct stat sfile;
         memset(&sfile, '\0', sizeof(sfile));
         ret = stat(file_name, &sfile);

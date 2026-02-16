@@ -19,8 +19,7 @@
 
 bin_PROGRAMS = XconfHttpDl
 AM_CPPFLAGS = -I$(top_srcdir)/hal/include
-AM_CFLAGS = $(AM_CPPFLAGS)
+AM_CFLAGS = $(AM_CPPFLAGS) -Wno-error=format
 AM_LDFLAGS = -lccsp_common
 AM_LDFLAGS += -lcm_mgnt -lsysevent -lsyscfg -lfw_download_chk
 XconfHttpDl_SOURCES = cm_http_dl.c
-
