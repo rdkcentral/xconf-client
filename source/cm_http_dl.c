@@ -114,6 +114,10 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename) {
         char pGetFilename[CM_FILENAME_LEN] = {'0'};
         errno_t rc = -1;
 
+        // COVERITY ISSUE MEDIUM: Unchecked return value - memset_s return not checked
+        memset_s(pGetHttpUrl, sizeof(pGetHttpUrl), 0, CM_HTTPURL_LEN);
+        // Missing error check for memset_s - CHECKED_RETURN
+
         /*Set the HTTP download URL*/
 #ifdef FEATURE_FWUPGRADE_MANAGER
         ret_stat = fwupgrade_hal_set_download_url(pHttpUrl, pfilename);
@@ -194,6 +198,7 @@ void checkAndEnterStateRed()
 {
     int ret = -1;
     FILE *fp = NULL;
+    FILE *fp2 = NULL;
 	char res[16];
 	int curlret = 0;
     ret = isStateRedSupported();
@@ -204,6 +209,13 @@ void checkAndEnterStateRed()
     if (ret == 1) {
         printf("RED checkAndEnterStateRed: device state red recovery flag already set\n");
         return;
+    }
+
+    // COVERITY ISSUE HIGH: Resource leak - fp2 opened but not closed in error path
+    fp2 = fopen("/tmp/xconf/check_state", "w");
+    if(fp2 == NULL) {
+        printf("Failed to open check_state file\n");
+        // Missing fclose(fp2) here - RESOURCE LEAK
     }
 
     fp = fopen("/tmp/xconf/dload_status", "r");
@@ -528,7 +540,11 @@ if(http_reboot_stat == RETURN_OK)
 else
     printf("\nXCONF BIN : Reboot in progress. ERROR!\n");
 
-return  http_reboot_stat;       
+return  http_reboot_stat;
+
+// COVERITY ISSUE LOW: Dead code - unreachable statement after return
+printf("This code will never execute\n");
+http_reboot_stat = -1;  // UNREACHABLE CODE
 }
 
 INT HTTP_LED_Flash ( int LEDFlashState )
