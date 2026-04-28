@@ -57,6 +57,32 @@ then
    source /lib/rdk/exec_curl_mtls.sh
 fi
 
+log() {
+    echo "$(date) $*" >> /rdklogs/logs/fw_trace.log
+}
+
+log "========== FW DOWNLOAD INVOKED =========="
+log "UPTIME=$(cut -d' ' -f1 /proc/uptime)"
+
+log "PID=$$ PPID=$PPID"
+log "ARGS=$@"
+
+log "SELF CMD=$(tr '\0' ' ' < /proc/$$/cmdline 2>/dev/null)"
+log "PARENT CMD=$(tr '\0' ' ' < /proc/$PPID/cmdline 2>/dev/null)"
+log "PARENT COMM=$(cat /proc/$PPID/comm 2>/dev/null)"
+
+# MOST IMPORTANT (identifies service)
+log "CGROUP=$(cat /proc/$$/cgroup 2>/dev/null)"
+
+log "---- SYSEVENT STATE ----"
+sysevent get wan-status 2>/dev/null | xargs -I{} log "wan-status={}"
+sysevent get wan_service-status 2>/dev/null | xargs -I{} log "wan_service-status={}"
+sysevent get rfc_in_progress 2>/dev/null | xargs -I{} log "rfc_in_progress={}"
+sysevent get bootup-status 2>/dev/null | xargs -I{} log "bootup-status={}"
+log "------------------------"
+
+log "========================================="
+
 if [ -f /lib/rdk/mtlsUtils.sh ]
 then
    source /lib/rdk/mtlsUtils.sh
