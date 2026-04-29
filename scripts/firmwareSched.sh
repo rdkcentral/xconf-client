@@ -20,6 +20,40 @@
 source /etc/utopia/service.d/log_capture_path.sh
 source /etc/utopia/service.d/log_env_var.sh
 
+log() {
+    echo "$(date) $*" >> /rdklogs/logs/fw_trace.log
+}
+
+log "========== FW SCHED INVOKED =========="
+log "UPTIME=$(cut -d' ' -f1 /proc/uptime)"
+
+log "PID=$$ PPID=$PPID"
+log "ARGS=$@"
+
+# self command
+log "SELF CMD=$(tr '\0' ' ' < /proc/$$/cmdline 2>/dev/null)"
+
+# parent info
+log "PARENT CMD=$(tr '\0' ' ' < /proc/$PPID/cmdline 2>/dev/null)"
+log "PARENT COMM=$(cat /proc/$PPID/comm 2>/dev/null)"
+
+# grandparent (critical for background '&')
+GPID=$(cat /proc/$PPID/stat 2>/dev/null | awk '{print $4}')
+log "GPID=$GPID"
+log "GRANDPARENT CMD=$(tr '\0' ' ' < /proc/$GPID/cmdline 2>/dev/null)"
+log "GRANDPARENT COMM=$(cat /proc/$GPID/comm 2>/dev/null)"
+
+# systemd / service identification
+log "CGROUP=$(cat /proc/$$/cgroup 2>/dev/null)"
+
+# simple markers to understand flow
+[ -f /tmp/Xconf ] && log "MARKER: XCONF flow detected (/tmp/Xconf present)"
+[ -f /tmp/DCMSettings.conf ] && log "MARKER: DCM flow detected"
+
+# syscfg state
+log "PeriodicFWCheck_Enable=$(syscfg get PeriodicFWCheck_Enable 2>/dev/null)"
+
+
 ALT_DCMRESPONSE="/tmp/DCMresponse_alt.txt"
 DCMRESPONSE="/nvram/DCMresponse.txt"
 CRONINTERVAL="/nvram/cron_update.txt"
