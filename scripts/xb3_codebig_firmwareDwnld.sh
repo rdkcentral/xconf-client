@@ -699,6 +699,9 @@ getFirmwareUpgDetail()
             dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
             dlAppBundle=$($JSONQUERY -f $FILENAME -p dlAppBundle)
 
+	    if [ "$type" != "PROD" ] && [ "$type" != "prod" ] && { [ -z "$dlAppBundle" ] || [ "$dlAppBundle" = "null" ]; }; then
+                dlAppBundle=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.InstallPackage | grep string | cut -d ':' -f3- | cut -d ' ' -f2- | tr -d ' '`
+            fi
                  echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
                  echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
                  echo_t "XCONF SCRIPT : Location :"$firmwareLocation

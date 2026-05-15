@@ -634,6 +634,10 @@ getFirmwareUpgDetail()
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
             dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
 
+	    if [ "$type" != "PROD" ] && [ "$type" != "prod" ] && { [ -z "$dlAppBundle" ] || [ "$dlAppBundle" = "null" ]; }; then
+                dlAppBundle=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.InstallPackage | grep string | cut -d ':' -f3- | cut -d ' ' -f2- | tr -d ' '`
+            fi
+
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
             echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
             echo_t "XCONF SCRIPT : Location :"$firmwareLocation
@@ -702,7 +706,7 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-		if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
+                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
                     dlBundle=""
                     if [ -n "$dlCertBundle" ]; then
                         dlBundle="dlCertBundle=$dlCertBundle"
