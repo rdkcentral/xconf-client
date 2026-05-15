@@ -582,11 +582,12 @@ getFirmwareUpgDetail()
                 fi
 
                 instBundles=$(getInstalledBundleList)
+                instAppBundles=$(getInstalledAppBundleList)
 
 		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
                         echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
-			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&dlCertBundle=${instBundles}&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+                        POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&dlCertBundle=${instBundles}&dlAppBundle=${instAppBundles}&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
 			# Query the  XCONF Server, using TLS 1.2
@@ -603,7 +604,7 @@ getFirmwareUpgDetail()
                 echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
                 ###############Jason string creation##########
                 echo_t "XCONF SCRIPT : Jason string creation"
-                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&activationInProgress=${activationInProgress}&accountId=${accountId}&serial=$serial&localtime=${date}&dlCertBundle=${instBundles}&timezone=US/Eastern${CB_CAPABILITIES}"
+                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&activationInProgress=${activationInProgress}&accountId=${accountId}&serial=$serial&localtime=${date}&dlCertBundle=${instBundles}&dlAppBundle=${instAppBundles}&timezone=US/Eastern${CB_CAPABILITIES}"
                 echo_t "XCONF SCRIPT : JSONSTR : $JSONSTR" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Get Signed URL"
 
@@ -696,6 +697,7 @@ getFirmwareUpgDetail()
 		rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`
         factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`
             dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
+            dlAppBundle=$($JSONQUERY -f $FILENAME -p dlAppBundle)
 
                  echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
                  echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -704,6 +706,7 @@ getFirmwareUpgDetail()
                  echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                  echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
                  echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
+                 echo_t "XCONF SCRIPT : dlAppBundle :"$dlAppBundle
 
                  if [ -n "$delayDownload" ]; then
                      echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
@@ -783,9 +786,20 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-                if [ -n "$dlCertBundle" ]; then
+                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
+                    dlBundle=""
+                    if [ -n "$dlCertBundle" ]; then
+                        dlBundle="dlCertBundle=$dlCertBundle"
+                    fi
+                    if [ -n "$dlAppBundle" ]; then
+                        if [ -n "$dlBundle" ]; then
+                            dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
+                        else
+                            dlBundle="dlAppBundle=$dlAppBundle"
+                        fi
+                    fi
                     echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
-                    (/usr/bin/rdm -x "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
                     echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
 

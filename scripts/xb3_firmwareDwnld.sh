@@ -441,10 +441,12 @@ getFirmwareUpgDetail()
             activationInProgress="false"
         fi
 
-		instBundles=$(getInstalledBundleList)
+        instBundles=$(getInstalledBundleList)
+        instAppBundles=$(getInstalledAppBundleList)
 
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&dlCertBundle='${instBundles}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
-        if [ "$UseCodebig" = "1" ]; then
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&dlCertBundle='${instBundles}'&dlAppBundle='${instAppBundles}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+        
+	if [ "$UseCodebig" = "1" ]; then
            useCodebigRequest
         else
            useDirectRequest
@@ -503,6 +505,7 @@ getFirmwareUpgDetail()
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
             factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
+            dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
                                     
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
             echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -512,6 +515,7 @@ getFirmwareUpgDetail()
             echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
             echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
             echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
+            echo_t "XCONF SCRIPT : dlAppBundle :"$dlAppBundle
             
             dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadURL string "$firmwareLocation"
             #RDKB-35095 AC#3
@@ -568,9 +572,20 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-                if [ -n "$dlCertBundle" ]; then
+                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
+                    dlBundle=""
+                    if [ -n "$dlCertBundle" ]; then
+                        dlBundle="dlCertBundle=$dlCertBundle"
+                    fi
+                    if [ -n "$dlAppBundle" ]; then
+                        if [ -n "$dlBundle" ]; then
+                            dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
+                        else
+                            dlBundle="dlAppBundle=$dlAppBundle"
+                        fi
+                    fi
                     echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
-                    (/usr/bin/rdm -x "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
                     echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
 
