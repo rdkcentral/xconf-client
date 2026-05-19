@@ -634,8 +634,11 @@ getFirmwareUpgDetail()
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
             dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
 
-	    if [ "$type" != "PROD" ] && [ "$type" != "prod" ] && { [ -z "$dlAppBundle" ] || [ "$dlAppBundle" = "null" ]; }; then
-                dlAppBundle=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.InstallPackage | grep string | cut -d ':' -f3- | cut -d ' ' -f2- | tr -d ' '`
+	    if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                rfcDlAppBundle=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RDKDownloadManager.InstallPackage | grep string | cut -d ':' -f3- | cut -d ' ' -f2- | tr -d ' '`
+                if [ -n "$rfcDlAppBundle" ] && [ "$rfcDlAppBundle" != "null" ]; then
+                        dlAppBundle="$rfcDlAppBundle"
+                fi
             fi
 
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
