@@ -507,20 +507,6 @@ getFirmwareUpgDetail()
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
             dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
 
-            if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
-                if [ -f /nvram/rdm-versioned-packages.conf ]; then
-                    versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
-                    if [ -n "$versionedDlAppBundle" ]; then
-                        dlAppBundle="$versionedDlAppBundle"
-                        echo_t "XCONF SCRIPT : Using dlAppBundle from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
-                    else
-                        echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf dlAppBundle" >> $XCONF_LOG_FILE
-                    fi
-                else
-                    echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf not found, falling back to XConf dlAppBundle" >> $XCONF_LOG_FILE
-                fi
-            fi
-
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
             echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
             echo_t "XCONF SCRIPT : Location :"$firmwareLocation
@@ -598,6 +584,18 @@ getFirmwareUpgDetail()
                             dlBundle="dlAppBundle=$dlAppBundle"
                         fi
                     fi
+                    if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                        if [ -f /nvram/rdm-versioned-packages.conf ]; then
+                            versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
+                            if [ -n "$versionedDlAppBundle" ]; then
+                                dlBundle="$versionedDlAppBundle"
+                                echo_t "XCONF SCRIPT : Downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
+                            else
+                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf" >> $XCONF_LOG_FILE
+                            fi
+                        fi
+                    fi
+
                     echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
                     (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
                     echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
