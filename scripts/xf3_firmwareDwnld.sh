@@ -638,7 +638,7 @@ getFirmwareUpgDetail()
                         fi
                     fi
                     echo_t "XCONF SCRIPT : Executing command - rdm -x to process bundle update" >> $XCONF_LOG_FILE
-                    $BIN_PATH/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    ($BIN_PATH/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
                     echo_t "XCONF SCRIPT : Executing command - rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
 

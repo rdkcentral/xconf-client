@@ -30,7 +30,7 @@ fi
 
 BUNDLE_METADATA_RFS_PATH="/etc/certs"
 
-BUNDLE_METADATA_NVM_APPS_PATH="/media/apps/etc/apps"
+BUNDLE_METADATA_NVM_APPS_PATH="/tmp/etc/apps"
 BUNDLE_METADATA_RFS_APPS_PATH="/etc/apps"
 
 JSONQUERY="/usr/bin/jsonquery"
