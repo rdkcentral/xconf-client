@@ -43,7 +43,6 @@ then
     source /lib/rdk/stateRedRecoveryUtils.sh
 fi
 
-LANIPV6Support=`sysevent get LANIPv6GUASupport`
 
 echo_t()
 {
@@ -497,16 +496,7 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=0
     retry_flag=1
-    if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ] || [ "x$BOX_TYPE" = "xSR213" ] || [ "$LANIPV6Support" == "true" ]; then
-       CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-       if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-             isIPv6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
-       else
-             isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
-       fi
-    else
-       isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
-    fi
+    isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
 
@@ -1353,16 +1343,8 @@ echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_
 
 # Check if the WAN interface has an ip address, if not , wait for it to receive one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ] || [ "x$BOX_TYPE" = "xSR213" ] || [ "$LANIPV6Support" == "true" ]; then
-   CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-   if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-         estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
-   else
-      estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-   fi
-else
-   estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-fi
+
+estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
 echo_t "[ $(date) ] XCONF SCRIPT - Check if the WAN interface has an ip address" >> $XCONF_LOG_FILE
 
 while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
@@ -1371,16 +1353,7 @@ do
     sleep 5
     interface=$(getWanInterfaceName)
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-    if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ] || [ "x$BOX_TYPE" = "xSR213" ] || [ "$LANIPV6Support" = "true" ]; then
-       CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-       if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-             estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
-       else
-          estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-       fi
-    else
-       estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-    fi
+    estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
     echo_t "XCONF SCRIPT : Sleeping for an ipv4 or an ipv6 address on the $interface interface "
 done
 
