@@ -634,10 +634,17 @@ getFirmwareUpgDetail()
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
             dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
 
-	    if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
-                rfcDlAppBundle=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RDKDownloadManager.InstallPackage | grep string | cut -d ':' -f3- | cut -d ' ' -f2- | tr -d ' '`
-                if [ -n "$rfcDlAppBundle" ] && [ "$rfcDlAppBundle" != "null" ]; then
-                        dlAppBundle="$rfcDlAppBundle"
+            if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                if [ -f /nvram/rdm-versioned-packages.conf ]; then
+                    versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
+                    if [ -n "$versionedDlAppBundle" ]; then
+                        dlAppBundle="$versionedDlAppBundle"
+                        echo_t "XCONF SCRIPT : Using dlAppBundle from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
+                    else
+                        echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf dlAppBundle" >> $XCONF_LOG_FILE
+                    fi
+                else
+                    echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf not found, falling back to XConf dlAppBundle" >> $XCONF_LOG_FILE
                 fi
             fi
 
