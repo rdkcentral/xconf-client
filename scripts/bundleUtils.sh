@@ -30,7 +30,12 @@ fi
 
 BUNDLE_METADATA_RFS_PATH="/etc/certs"
 
-BUNDLE_METADATA_NVM_APPS_PATH="/nvram/etc/apps"
+if [ "$DEVICE_TYPE" = "broadband" ]; then
+	BUNDLE_METADATA_NVM_APPS_PATH="/nvram/etc/apps"
+else
+	BUNDLE_METADATA_NVM_APPS_PATH="/media/apps/etc/apps"
+fi
+
 BUNDLE_METADATA_RFS_APPS_PATH="/etc/apps"
 
 JSONQUERY="/usr/bin/jsonquery"
@@ -197,7 +202,7 @@ getInstalledAppBundleList()
                 for file in $metadata_ls; do
                         bundle_name=$(getPkgMetadata $file $PKG_METADATA_NAME)
                         bundle_version=$(getPkgMetadata $file $PKG_METADATA_VER)
-                        if [ -n "$bundle_name" -o -n "$bundle_version" ]; then
+			if [ -n "$bundle_name" ] && [ -n "$bundle_version" ]; then
                                 list="$list $bundle_name:$bundle_version"
                         else
                                 log "Missing package name or version in $file"
