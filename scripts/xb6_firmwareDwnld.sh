@@ -1635,6 +1635,11 @@ do
                 # Indicate an unsuccesful download
                 echo_t "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
 		t2CountNotify "XCONF_Dwld_failed"
+                if [ -f /tmp/.dwd_led_blink_disable ]
+                then
+                    rm -f /tmp/.dwd_led_blink_disable
+                    echo "XCONF SCRIPT : .dwd_led_blink_disable deleted on download failure" >> $XCONF_LOG_FILE
+                fi
                 if [ "$triggeredFrom" = "stateRedRecovery" ];then
                     stateRedlog "XCONF SCRIPT : stateRedRecovery - firmware download failed"
                     tlsLog "unsetStateRed: XCONF SCRIPT firmware download failed with status $http_dl_stat"
@@ -1658,6 +1663,11 @@ do
         else
             echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying "
             echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying " >> $XCONF_LOG_FILE
+            if [ -f /tmp/.dwd_led_blink_disable ]
+            then
+                rm -f /tmp/.dwd_led_blink_disable
+                echo "XCONF SCRIPT : .dwd_led_blink_disable deleted on URL set failure" >> $XCONF_LOG_FILE
+            fi
 	     download_image_success=0
              # Set the flag to 0 to force a requery
              image_upg_avl=0
