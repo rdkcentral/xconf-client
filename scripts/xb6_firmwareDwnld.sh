@@ -628,6 +628,7 @@ getFirmwareUpgDetail()
         fi
 
         instBundles=$(getInstalledBundleList)
+        instAppBundles=$(getInstalledAppBundleList)
 
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC"
@@ -636,7 +637,7 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${devicemodel}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&dlCertBundle='${instBundles}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+	JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${devicemodel}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&dlCertBundle='${instBundles}'&dlAppBundle='${instAppBundles}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
         #Parsing JSONSTR with recovery flag
         if [ -f /lib/rdk/stateRedRecoveryUtils.sh ];then
@@ -717,6 +718,7 @@ getFirmwareUpgDetail()
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`     
             factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`
             dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
+            dlAppBundle=$($JSONQUERY -f $FWDL_JSON -p dlAppBundle)
 
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
     	    echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -727,6 +729,7 @@ getFirmwareUpgDetail()
     	    echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
             echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
             echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
+            echo_t "XCONF SCRIPT : dlAppBundle :"$dlAppBundle
             
             if [ "$direct_CDN" = "true" ];then
 	        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadURL string "$firmware_URL"
@@ -785,9 +788,32 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-                if [ -n "$dlCertBundle" ]; then
+                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
+                    dlBundle=""
+                    if [ -n "$dlCertBundle" ]; then
+                        dlBundle="dlCertBundle=$dlCertBundle"
+                    fi
+                    if [ -n "$dlAppBundle" ]; then
+                        if [ -n "$dlBundle" ]; then
+                            dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
+                        else
+                            dlBundle="dlAppBundle=$dlAppBundle"
+                        fi
+                    fi
+                    if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                        if [ -f /nvram/rdm-versioned-packages.conf ]; then
+                            versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
+                            if [ -n "$versionedDlAppBundle" ]; then
+                                dlBundle="$versionedDlAppBundle"
+                                echo_t "XCONF SCRIPT : Downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
+                            else
+                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf" >> $XCONF_LOG_FILE
+                            fi
+                        fi
+                    fi
+
                     echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
-                    (/usr/bin/rdm -x "$dlCertBundle" "$firmwareLocation" >> ${XCONF_LOG_PATH}/rdm_status.log 2>&1) &
+                    (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${XCONF_LOG_PATH}/rdm_status.log 2>&1) &
                     echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
            	# Check if a newer version was returned in the response
