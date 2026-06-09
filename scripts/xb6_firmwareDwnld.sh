@@ -1638,7 +1638,7 @@ do
                 if [ -f /tmp/.dwd_led_blink_disable ]
                 then
                     rm -f /tmp/.dwd_led_blink_disable
-                    echo "XCONF SCRIPT : .dwd_led_blink_disable deleted on download failure" >> $XCONF_LOG_FILE
+                    echo "XCONF SCRIPT : .dwd_led_blink_disable deleted on firmware download failure" >> $XCONF_LOG_FILE
                 fi
                 if [ "$triggeredFrom" = "stateRedRecovery" ];then
                     stateRedlog "XCONF SCRIPT : stateRedRecovery - firmware download failed"
