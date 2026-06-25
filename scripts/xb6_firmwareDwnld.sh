@@ -63,7 +63,7 @@ fi
 PARTNER_ID="$(getPartnerId)"
 
 if [ -f /lib/rdk/mtlsUtils.sh ]; then
-    if [ "x$BOX_TYPE" = "xSR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]; then
+    if [ "x$BOX_TYPE" = "xSR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ] || [ "x$BOX_TYPE" = "xXER2" ]; then
         echo_t "XCONF: calling getMtlsCreds"
         CERT="`getMtlsCreds ${BOX_TYPE}_firmwareDwnld.sh`"
     else
@@ -679,7 +679,7 @@ getFirmwareUpgDetail()
 
 	    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
 
-            if ([ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]) && [ "$firmwareDownloadProtocol" != "" ];then
+            if ([ "$BOX_TYPE" = "HUB4" ] || [ "$BOX_TYPE" = "SR213" ] || [ "x$BOX_TYPE" = "xSCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ] || [ "x$BOX_TYPE" = "xXER2" ]) && [ "$firmwareDownloadProtocol" != "" ];then
                 dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadProtocol string "$firmwareDownloadProtocol"
             fi
 
@@ -1526,7 +1526,7 @@ do
                   CERT=$(echo "$CERT" | sed 's/--config \/dev\/stdin//g')
               fi
               #Use the MTLS certificates for all platforms"
-              if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ]; then
+              if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ] || [ "x$BOX_TYPE" = "xXER2" ]; then
                   XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$CERT"
               else
                   XconfHttpDl set_http_url " $CERT $firmwareLocation/$firmwareFilename " "$firmwareFilename" complete_url
