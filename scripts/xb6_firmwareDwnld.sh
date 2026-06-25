@@ -788,26 +788,28 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
                     dlBundle=""
-                    if [ -n "$dlCertBundle" ]; then
-                        dlBundle="dlCertBundle=$dlCertBundle"
-                    fi
-                    if [ -n "$dlAppBundle" ]; then
-                        if [ -n "$dlBundle" ]; then
-                            dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
-                        else
-                            dlBundle="dlAppBundle=$dlAppBundle"
-                        fi
-                    fi
                     if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
                         if [ -f /nvram/rdm-versioned-packages.conf ]; then
-                            versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
-                            if [ -n "$versionedDlAppBundle" ]; then
-                                dlBundle="$versionedDlAppBundle"
-                                echo_t "XCONF SCRIPT : Downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
+                            versionedDlBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
+                            if [ -n "$versionedDlBundle" ] && [ "$versionedDlBundle" != "0" ]; then
+                                dlBundle="$versionedDlBundle"
+                                echo_t "XCONF SCRIPT : Non-PROD build, downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
                             else
-                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf" >> $XCONF_LOG_FILE
+                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty or 0, falling back to XConf values" >> $XCONF_LOG_FILE
+                            fi
+                        fi
+                    fi
+
+                    if [ -z "$dlBundle" ]; then
+                        if [ -n "$dlCertBundle" ] && [ "$dlCertBundle" != "0" ]; then
+                            dlBundle="dlCertBundle=$dlCertBundle"
+                        fi
+                        if [ -n "$dlAppBundle" ] && [ "$dlAppBundle" != "0" ]; then
+                            if [ -n "$dlBundle" ]; then
+                                dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
+                            else
+                                dlBundle="dlAppBundle=$dlAppBundle"
                             fi
                         fi
                     fi
