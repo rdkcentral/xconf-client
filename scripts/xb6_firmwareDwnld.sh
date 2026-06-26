@@ -790,13 +790,14 @@ getFirmwareUpgDetail()
                 # If so, trigger /usr/bin/rdm -x to process it
                     dlBundle=""
                     if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                        echo_t "XCONF SCRIPT : Non-PROD build, downloading from /nvram/rdm-versioned-packages.conf"
                         if [ -f /nvram/rdm-versioned-packages.conf ]; then
                             versionedDlBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
                             if [ -n "$versionedDlBundle" ] && [ "$versionedDlBundle" != "0" ]; then
                                 dlBundle="$versionedDlBundle"
-                                echo_t "XCONF SCRIPT : Non-PROD build, downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
+                                echo_t "XCONF SCRIPT : Non-PROD build, Overriding from /nvram/rdm-versioned-packages.conf: $dlBundle"
                             else
-                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty or 0, falling back to XConf values" >> $XCONF_LOG_FILE
+                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty or 0, falling back to XConf values"
                             fi
                         fi
                     fi
