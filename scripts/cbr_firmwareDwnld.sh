@@ -727,7 +727,11 @@ getFirmwareUpgDetail()
                         fi
                     fi
                 fi
-           	
+ 
+	        echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
+                (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
+
             # Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware 
@@ -774,7 +778,6 @@ getFirmwareUpgDetail()
                     fi
 		fi
 
-            fi
 
         # If a response code of 404 was received, exit
         elif [[ $HTTP_RESPONSE_CODE -eq 404 ]]; then

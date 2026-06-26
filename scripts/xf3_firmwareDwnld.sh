@@ -688,7 +688,6 @@ getFirmwareUpgDetail()
                         sleep $delayDownloadSec
                     fi
                 fi
-            fi
 		
 
         # If a response code of 404 was received, exit
