@@ -702,37 +702,40 @@ getFirmwareUpgDetail()
 
                 # Check if xconf returned any bundles to update
                 # If so, trigger /usr/bin/rdm -x to process it
-                if [ -n "$dlCertBundle" ] || [ -n "$dlAppBundle" ]; then
-                    dlBundle=""
-                    if [ -n "$dlCertBundle" ]; then
+		dlBundle=""
+                if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+                    echo_t "XCONF SCRIPT : Non-PROD build, downloading from /nvram/rdm-versioned-packages.conf"
+                    if [ -f /nvram/rdm-versioned-packages.conf ]; then
+                        versionedDlBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
+                        if [ -n "$versionedDlBundle" ] && [ "$versionedDlBundle" != "0" ]; then
+                            dlBundle="$versionedDlBundle"
+                            echo_t "XCONF SCRIPT : Non-PROD build, Overriding from /nvram/rdm-versioned-packages.conf: $dlBundle"
+                        else
+                            echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty or 0, falling back to XConf values"
+                        fi
+                    fi
+                fi
+
+                if [ -z "$dlBundle" ]; then
+                    if [ -n "$dlCertBundle" ] && [ "$dlCertBundle" != "0" ]; then
                         dlBundle="dlCertBundle=$dlCertBundle"
                     fi
-                    if [ -n "$dlAppBundle" ]; then
+                    if [ -n "$dlAppBundle" ] && [ "$dlAppBundle" != "0" ]; then
                         if [ -n "$dlBundle" ]; then
                             dlBundle="$dlBundle|dlAppBundle=$dlAppBundle"
                         else
                             dlBundle="dlAppBundle=$dlAppBundle"
                         fi
                     fi
-
-                    if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
-                        if [ -f /nvram/rdm-versioned-packages.conf ]; then
-                            versionedDlAppBundle=`grep -v '^[[:space:]]*#' /nvram/rdm-versioned-packages.conf | tr -d '[:space:]'`
-                            if [ -n "$versionedDlAppBundle" ]; then
-                                dlBundle="$versionedDlAppBundle"
-                                echo_t "XCONF SCRIPT : Downloading from /nvram/rdm-versioned-packages.conf" >> $XCONF_LOG_FILE
-                            else
-                                echo_t "XCONF SCRIPT : /nvram/rdm-versioned-packages.conf is empty, falling back to XConf" >> $XCONF_LOG_FILE
-                            fi
-                        fi
-                    fi
-
-                    echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
-                    (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
-                    echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
                 fi
 
-           	# Check if a newer version was returned in the response
+	        if [ -n "$dlBundle" ]; then	
+	           echo_t "XCONF SCRIPT : Calling /usr/bin/rdm -x to process bundle update" >> $XCONF_LOG_FILE
+                   (/usr/bin/rdm -x "$dlBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                   echo_t "XCONF SCRIPT : /usr/bin/rdm -x started in background" >> $XCONF_LOG_FILE
+		fi
+
+            # Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware 
                 echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
@@ -778,7 +781,6 @@ getFirmwareUpgDetail()
                     fi
 		fi
 
-            fi
 
         # If a response code of 404 was received, exit
         elif [[ $HTTP_RESPONSE_CODE -eq 404 ]]; then
