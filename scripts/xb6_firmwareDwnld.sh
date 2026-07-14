@@ -1324,16 +1324,13 @@ if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
     else
         # RFC override should work only for non-production build
         url_override=`syscfg get AutoExcludedURL`
-        if [ "$url_override" ] ; then
+        # Set CDL_SERVER_OVERRIDE only for non-direct-CDN flow
+        if [ "$url_override" ] && [ "$direct_CDN" = "false" ]; then
            url=$url_override
            xconf_url=$url
-           # Set CDL_SERVER_OVERRIDE only for non-direct-CDN flow
-	   if [ "$direct_CDN" = "false" ]; then
 	       CDL_SERVER_OVERRIDE=1
-	       echo "XCONF SCRIPT : Direct CDN NOT ENABLED. CDL_SERVER_OVERRIDE is set URL=$url"  >> $XCONF_LOG_FILE
-	   else
-	       echo "XCONF SCRIPT : Direct CDN enabled. Not setting CDL_SERVER_OVERRIDE for AutoExcludedURL URL=$url"  >> $XCONF_LOG_FILE
-	   fi
+		else
+           echo "XCONF SCRIPT : Direct CDN enabled. Not setting CDL_SERVER_OVERRIDE for AutoExcludedURL URL $url"  >> $XCONF_LOG_FILE
         fi
     fi
 else
