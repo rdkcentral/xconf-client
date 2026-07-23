@@ -1261,7 +1261,7 @@ if [ -f /nvram/swupdate.conf ]; then
 else
   # RFC override should work only for non-production build
   url_override=`syscfg get AutoExcludedURL`
-  if [ "$url_override" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE != "prod" ] ; then
+  if [ "$url_override" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE != "prod" ] && [ "$direct_CDN" != "true" ]; then
      url=$url_override
   fi
 fi
