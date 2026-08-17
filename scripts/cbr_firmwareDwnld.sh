@@ -781,6 +781,7 @@ getFirmwareUpgDetail()
                     fi
 		fi
 
+        fi
 
         # If a response code of 404 was received, exit
         elif [[ $HTTP_RESPONSE_CODE -eq 404 ]]; then
