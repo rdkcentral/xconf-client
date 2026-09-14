@@ -90,29 +90,6 @@ updateCron()
     fi
 }
 
-getTimezoneOffsetMinutes()
-{
-    local_hr=`LTime H`
-    local_min=`LTime M`
-
-    utc_hr=`date -u +"%H"`
-    utc_min=`date -u +"%M"`
-
-    local_total=$((10#$local_hr * 60 + 10#$local_min))
-    utc_total=$((10#$utc_hr * 60 + 10#$utc_min))
-
-    offset=$((local_total - utc_total))
-
-    # Handle midnight boundary
-    if [ $offset -gt 720 ]; then
-        offset=$((offset - 1440))
-    elif [ $offset -lt -720 ]; then
-        offset=$((offset + 1440))
-    fi
-
-    echo $offset
-}
-
 convertLocalCronToUTC()
 {
     cronExpr="$1"
@@ -122,8 +99,10 @@ convertLocalCronToUTC()
 
     cronTotal=$((10#$cronHr * 60 + 10#$cronMin))
 
-    timezoneOffset=`getTimezoneOffsetMinutes`
-	echo_t "XCONF SCRIPT: Derived timezone offset=$timezoneOffset minutes" >> $XCONF_LOG_FILE
+    timezoneOffsetSec=`dmcli eRT getv Device.Time.TimeOffset | grep "value:" | awk '{print $NF}'`
+    [ -z "$timezoneOffsetSec" ] && timezoneOffsetSec=0
+    timezoneOffset=$((timezoneOffsetSec / 60))
+    echo_t "XCONF SCRIPT: Device.Time.TimeOffset=$timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
 
     utcTotal=$((cronTotal - timezoneOffset))
 
