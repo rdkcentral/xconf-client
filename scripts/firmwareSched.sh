@@ -89,6 +89,59 @@ updateCron()
         echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
     fi
 }
+
+getTimezoneOffsetMinutes()
+{
+    local_hr=`LTime H`
+    local_min=`LTime M`
+
+    utc_hr=`date -u +"%H"`
+    utc_min=`date -u +"%M"`
+
+    local_total=$((10#$local_hr * 60 + 10#$local_min))
+    utc_total=$((10#$utc_hr * 60 + 10#$utc_min))
+
+    offset=$((local_total - utc_total))
+
+    # Handle midnight boundary
+    if [ $offset -gt 720 ]; then
+        offset=$((offset - 1440))
+    elif [ $offset -lt -720 ]; then
+        offset=$((offset + 1440))
+    fi
+
+    echo $offset
+}
+
+convertLocalCronToUTC()
+{
+    cronExpr="$1"
+
+    cronMin=`echo "$cronExpr" | awk '{print $1}'`
+    cronHr=`echo "$cronExpr" | awk '{print $2}'`
+
+    cronTotal=$((10#$cronHr * 60 + 10#$cronMin))
+
+    timezoneOffset=`getTimezoneOffsetMinutes`
+	echo_t "XCONF SCRIPT: Derived timezone offset=$timezoneOffset minutes" >> $XCONF_LOG_FILE
+
+    utcTotal=$((cronTotal - timezoneOffset))
+
+    while [ $utcTotal -lt 0 ]
+    do
+        utcTotal=$((utcTotal + 1440))
+    done
+
+    while [ $utcTotal -ge 1440 ]
+    do
+        utcTotal=$((utcTotal - 1440))
+    done
+
+    utcHr=$((utcTotal / 60))
+    utcMin=$((utcTotal % 60))
+
+    echo "$utcMin $utcHr * * *"
+}
 ##############################################################
 #                                                            #
 #                          Main App                          #
@@ -145,9 +198,20 @@ then
 fi
 
 	      cronPattern=""
+	      timeZoneMode=""
         if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ]
         then
            cronPattern=`grep "urn:settings:CheckSchedule:cron" $FORMATTED_TMP_DCM_RESPONSE | cut -f2 -d=`
+           timeZoneMode=`grep "urn:settings:TimeZoneMode" $FORMATTED_TMP_DCM_RESPONSE | cut -f2 -d=`
+
+           if [ "$timeZoneMode" = "Local time" ] && [ -n "$cronPattern" ]
+		   then
+		     originalCron="$cronPattern"
+			 cronPattern=`convertLocalCronToUTC "$cronPattern"`
+			 echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode" >> $XCONF_LOG_FILE
+			 echo_t "XCONF SCRIPT: Original Local Cron=$originalCron" >> $XCONF_LOG_FILE
+			 echo_t "XCONF SCRIPT: Converted UTC Cron=$cronPattern" >> $XCONF_LOG_FILE
+		   fi
         
            if [ "$cronPattern" != "" ]
            then
