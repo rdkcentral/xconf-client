@@ -116,6 +116,8 @@ PROCESSING_RFC="/tmp/.processingrfc"
 PENDING_RFC_REBOOT="/tmp/.pendingrfcreboot"
 APPLY_RFC="/tmp/applyRfc"
 
+FW_TIMEZONE_OFFSET_FILE="/nvram/.fw_timezone_offset"
+
 #Check CodeBig before using direct_CDN
 CodeBigEnable=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodeBigFirst.Enable | grep value | cut -f3 -d : | cut -f2 -d " "`
 
@@ -1259,6 +1261,33 @@ checkrfcstatus()
     done
 }
 
+checkDSTChange()
+{
+    [ ! -f /tmp/DCMSettings.conf ] && return
+
+    timeZoneMode=`grep "urn:settings:TimeZoneMode" /tmp/DCMSettings.conf | cut -d= -f2`
+    [ "$timeZoneMode" != "Local time" ] && return
+
+    [ ! -f "$FW_TIMEZONE_OFFSET_FILE" ] && return
+
+    savedOffset=`cat $FW_TIMEZONE_OFFSET_FILE`
+
+    currentOffset=`dmcli eRT getv Device.Time.TimeOffset |grep "value:" | awk '{print $NF}'`
+
+    [ -z "$currentOffset" ] && return
+
+    if [ "$savedOffset" != "$currentOffset" ]
+    then
+        echo_t "XCONF SCRIPT : DST/Timezone change detected" >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Previous offset=$savedOffset" >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Current offset=$currentOffset" >> $XCONF_LOG_FILE
+
+        /etc/firmwareSched.sh DCM_Trigger
+
+        echo_t "XCONF SCRIPT : Firmware cron regenerated" >> $XCONF_LOG_FILE
+    fi
+}
+
 #####################################################Main Application#####################################################
 
 # Determine the env type and url and write to /tmp/Xconf
@@ -1295,6 +1324,11 @@ elif [[ $1 -eq 7 ]]; then
 else
     echo_t "XCONF SCRIPT : Trigger is Unknown. Set it to boot" >> $XCONF_LOG_FILE
     triggeredFrom="boot"
+fi
+
+# Check DST/Timezone changes for periodic scheduler execution
+if [ "$1" = "2" ]; then
+   checkDSTChange
 fi
 
 # If unit is waiting for reboot after image download,we need not have to download image again.

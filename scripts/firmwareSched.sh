@@ -29,6 +29,7 @@ FORMATTED_TMP_DCM_RESPONSE='/tmp/DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab$$.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
+FW_TIMEZONE_OFFSET_FILE="/nvram/.fw_timezone_offset"
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
@@ -102,6 +103,7 @@ convertLocalCronToUTC()
     timezoneOffsetSec=`dmcli eRT getv Device.Time.TimeOffset | grep "value:" | awk '{print $NF}'`
     [ -z "$timezoneOffsetSec" ] && timezoneOffsetSec=0
     timezoneOffset=$((timezoneOffsetSec / 60))
+    echo "$timezoneOffsetSec" > $FW_TIMEZONE_OFFSET_FILE
     echo_t "XCONF SCRIPT: Device.Time.TimeOffset=$timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
 
     utcTotal=$((cronTotal - timezoneOffset))
