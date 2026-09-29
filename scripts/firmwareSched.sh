@@ -38,6 +38,7 @@ if [ "$FWUPGRADE_EXCLUDE" = "true" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE !
     exit
 fi
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
+MODEL_NUM=`grep "^MODEL_NUM=" /etc/device.properties 2>/dev/null | cut -d "=" -f2- | tr -d '\r' | tr 'A-Z' 'a-z' | tr -d '[:space:]'`
 
 #check if RDKFirmwareUpgrader is enabled if true send dbus trigger to the rdkfwupgrader daemon uing check_now()
 isRDKFWUpgraderEnabled=`syscfg get RDKFirmwareUpgraderEnabled`
@@ -232,35 +233,41 @@ fi
         if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ]
         then
            cronPattern=$(grep "urn:settings:CheckSchedule:cron" "$FORMATTED_TMP_DCM_RESPONSE" | cut -f2 -d= | tr -d '\r')
-           timeZoneModeRaw=$(grep "urn:settings:TimeZoneMode" "$FORMATTED_TMP_DCM_RESPONSE" | cut -f2 -d= | tr -d '\r')
-           timeZoneMode=$(normalizeTimeZoneMode "$timeZoneModeRaw")
 
-           if [ -n "$timeZoneModeRaw" ] && [ "$timeZoneMode" = "INVALID" ]
+           #RDKB-66930: RDKB FW download logic to support downloads based on local time
+           # supported Devices CBRV2, XB6, XB7 and XB8
+           if [ "$MODEL_NUM" = "cga4332com" ] || [ "$MODEL_NUM" = "cgm4140com" ] || [ "$MODEL_NUM" = "cgm4331com" ] || [ "$MODEL_NUM" = "cgm4981com" ]
            then
-              echo_t "XCONF SCRIPT: Invalid TimeZoneMode [$timeZoneModeRaw] received from XConf; falling back to UTC" >> $XCONF_LOG_FILE
-              t2ValNotify "FW_DL_TIME_FALLBACK_split" "FallbackToUTC"
-           elif [ -z "$timeZoneModeRaw" ]
-           then
-              echo_t "XCONF SCRIPT: TimeZoneMode missing in XConf response; falling back to UTC schedule." >> $XCONF_LOG_FILE
-              t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
+              timeZoneModeRaw=$(grep "urn:settings:TimeZoneMode" "$FORMATTED_TMP_DCM_RESPONSE" | cut -f2 -d= | tr -d '\r')
+              timeZoneMode=$(normalizeTimeZoneMode "$timeZoneModeRaw")
+
+              if [ -n "$timeZoneModeRaw" ] && [ "$timeZoneMode" = "INVALID" ]
+              then
+                 echo_t "XCONF SCRIPT: Invalid TimeZoneMode [$timeZoneModeRaw] received from XConf; falling back to UTC" >> $XCONF_LOG_FILE
+                 t2ValNotify "FW_DL_TIME_FALLBACK_split" "FallbackToUTC"
+              elif [ -z "$timeZoneModeRaw" ]
+              then
+                 echo_t "XCONF SCRIPT: TimeZoneMode missing in XConf response; falling back to UTC schedule." >> $XCONF_LOG_FILE
+                 t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
+              fi
+
+              if [ "$timeZoneMode" = "LocalTime" ] && [ -n "$cronPattern" ]
+              then
+                  originalCron="$cronPattern"
+                  cronPattern=$(convertLocalCronToUTC "$cronPattern")
+                  if [ "$cronPattern" = "INVALID" ]
+                  then
+                       echo_t "XCONF SCRIPT: LocalTime zone mode: device offset unavailable/invalid; falling back to UTC" >> $XCONF_LOG_FILE
+                       t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
+                       cronPattern="$originalCron"
+                  else
+                       echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
+                       t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
+                  fi
+              else
+                  t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
+              fi
            fi
-
-           if [ "$timeZoneMode" = "LocalTime" ] && [ -n "$cronPattern" ]
-           then
-               originalCron="$cronPattern"
-               cronPattern=$(convertLocalCronToUTC "$cronPattern")
-               if [ "$cronPattern" = "INVALID" ]
-               then
-                    echo_t "XCONF SCRIPT: LocalTime zone mode: device offset unavailable/invalid; falling back to UTC" >> $XCONF_LOG_FILE
-                    t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
-                    cronPattern="$originalCron"
-               else
-                    echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
-                    t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
-               fi
-            else
-                t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
-            fi
 
            if [ "$cronPattern" != "" ]
            then
