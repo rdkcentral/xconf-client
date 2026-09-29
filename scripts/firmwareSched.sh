@@ -89,6 +89,87 @@ updateCron()
         echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
     fi
 }
+
+normalizeTimeZoneMode()
+{
+    mode="$1"
+    mode=$(echo "$mode" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]' | tr '_' '-')
+
+    case "$mode" in
+        utc|utctime)
+            echo "UTC"
+            ;;
+        localtime|local-time|localtimezone|localtimezonevalue)
+            echo "LocalTime"
+            ;;
+        *)
+            echo "INVALID"
+            ;;
+    esac
+}
+
+convertLocalCronToUTC()
+{
+    cronExpr="$1"
+
+    if [ -z "$cronExpr" ]; then
+        echo "INVALID"
+        return
+    fi
+
+    set -- $cronExpr
+    if [ $# -lt 2 ]; then
+        echo "INVALID"
+        return
+    fi
+
+    cronMin=$1
+    cronHr=$2
+
+    case "$cronMin$cronHr" in
+        *[!0-9]*)
+            echo "INVALID"
+            return
+            ;;
+    esac
+
+    if [ $cronMin -lt 0 ] 2>/dev/null || [ $cronMin -gt 59 ] 2>/dev/null; then
+        echo "INVALID"
+        return
+    fi
+
+    if [ $cronHr -lt 0 ] 2>/dev/null || [ $cronHr -gt 23 ] 2>/dev/null; then
+        echo "INVALID"
+        return
+    fi
+
+    cronTotal=$((10#$cronHr * 60 + 10#$cronMin))
+
+    timezoneOffsetSec=$(dmcli eRT getv Device.Time.TimeOffset 2>/dev/null | awk -F': ' '/value:/ {print $2}' | tr -d '\r')
+    if [ -z "$timezoneOffsetSec" ] || ! echo "$timezoneOffsetSec" | grep -Eq '^-?[0-9]+$'; then
+        echo "INVALID"
+        return
+    fi
+
+    timezoneOffset=$((timezoneOffsetSec / 60))
+    echo_t "XCONF SCRIPT: Device.Time.TimeOffset=$timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
+
+    utcTotal=$((cronTotal - timezoneOffset))
+
+    while [ $utcTotal -lt 0 ]
+    do
+        utcTotal=$((utcTotal + 1440))
+    done
+
+    while [ $utcTotal -ge 1440 ]
+    do
+        utcTotal=$((utcTotal - 1440))
+    done
+
+    utcHr=$((utcTotal / 60))
+    utcMin=$((utcTotal % 60))
+
+    echo "$utcMin $utcHr * * *"
 ##############################################################
 #                                                            #
 #                          Main App                          #
@@ -145,10 +226,35 @@ then
 fi
 
 	      cronPattern=""
+          timeZoneMode=""
+          timeZoneModeRaw=""
         if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ]
         then
-           cronPattern=`grep "urn:settings:CheckSchedule:cron" $FORMATTED_TMP_DCM_RESPONSE | cut -f2 -d=`
-        
+           cronPattern=$(grep "urn:settings:CheckSchedule:cron" "$FORMATTED_TMP_DCM_RESPONSE" | cut -f2 -d= | tr -d '\r')
+           timeZoneModeRaw=$(grep "urn:settings:TimeZoneMode" "$FORMATTED_TMP_DCM_RESPONSE" | cut -f2 -d= | tr -d '\r')
+           timeZoneMode=$(normalizeTimeZoneMode "$timeZoneModeRaw")
+
+           if [ -n "$timeZoneModeRaw" ] && [ "$timeZoneMode" = "INVALID" ]
+           then
+              echo_t "XCONF SCRIPT: Invalid TimeZoneMode [$timeZoneModeRaw] received from XConf; falling back to UTC" >> $XCONF_LOG_FILE
+           elif [ -z "$timeZoneModeRaw" ]
+           then
+              echo_t "XCONF SCRIPT: TimeZoneMode missing in XConf response; falling back to UTC schedule." >> $XCONF_LOG_FILE
+           fi
+
+           if [ "$timeZoneMode" = "LocalTime" ] && [ -n "$cronPattern" ]
+           then
+               originalCron="$cronPattern"
+               cronPattern=$(convertLocalCronToUTC "$cronPattern")
+               if [ "$cronPattern" = "INVALID" ]
+               then
+                    echo_t "XCONF SCRIPT: LocalTime zone mode: device offset unavailable/invalid; falling back to UTC" >> $XCONF_LOG_FILE
+                    cronPattern="$originalCron"
+               else
+                    echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
+               fi
+            fi
+
            if [ "$cronPattern" != "" ]
            then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
