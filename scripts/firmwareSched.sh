@@ -143,7 +143,7 @@ convertLocalCronToUTC()
         return
     fi
 
-    cronTotal=$((10#$cronHr * 60 + 10#$cronMin))
+    cronTotal=$(awk -v hour="$cronHr" -v minute="$cronMin" 'BEGIN { print (hour + 0) * 60 + (minute + 0) }')
 
     timezoneOffsetSec=$(dmcli eRT getv Device.Time.TimeOffset 2>/dev/null | grep "value:" | awk '{print $NF}')
     if [ -z "$timezoneOffsetSec" ] || ! echo "$timezoneOffsetSec" | grep -Eq '^-?[0-9]+$'; then
@@ -238,9 +238,11 @@ fi
            if [ -n "$timeZoneModeRaw" ] && [ "$timeZoneMode" = "INVALID" ]
            then
               echo_t "XCONF SCRIPT: Invalid TimeZoneMode [$timeZoneModeRaw] received from XConf; falling back to UTC" >> $XCONF_LOG_FILE
+              t2ValNotify "FW_DL_TIME_FALLBACK_split" "FallbackToUTC"
            elif [ -z "$timeZoneModeRaw" ]
            then
               echo_t "XCONF SCRIPT: TimeZoneMode missing in XConf response; falling back to UTC schedule." >> $XCONF_LOG_FILE
+              t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
            fi
 
            if [ "$timeZoneMode" = "LocalTime" ] && [ -n "$cronPattern" ]
@@ -250,10 +252,14 @@ fi
                if [ "$cronPattern" = "INVALID" ]
                then
                     echo_t "XCONF SCRIPT: LocalTime zone mode: device offset unavailable/invalid; falling back to UTC" >> $XCONF_LOG_FILE
+                    t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
                     cronPattern="$originalCron"
                else
                     echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
+                    t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
                fi
+            else
+                t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
             fi
 
            if [ "$cronPattern" != "" ]
