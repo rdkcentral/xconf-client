@@ -115,14 +115,16 @@ getDaysInMonth()
     year=${2:-$(date +%Y)}
 
     case $month in
-        1|3|5|7|8|10|12)
+        0|2|4|6|7|9|11)
+            # Jan, Mar, May, Jul, Aug, Oct, Dec (31 days)
             echo 31
             ;;
-        4|6|9|11)
+        3|5|8|10)
+            # Apr, Jun, Sep, Nov (30 days)
             echo 30
             ;;
-        2)
-            # Check leap year
+        1)
+            # Feb (28 or 29 days based on leap year)
             if [ $((year % 4)) -eq 0 ] && { [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; }; then
                 echo 29
             else
@@ -206,35 +208,83 @@ convertLocalCronToUTC()
     utcHr=$((utcTotal / 60))
     utcMin=$((utcTotal % 60))
 
-    if { [ "$cronDom" = "*" ] && [ "$cronDow" = "*" ]; } || [ "$dayOffset" = "0" ]; then
-        # No adjustment needed - convert time only, preserve all date fields
+    if [ "$dayOffset" = "0" ]; then
+        # No day boundary crossing - preserve all fields as-is
         echo "$utcMin $utcHr $cronDom $cronMonth $cronDow"
+    elif { [ "$cronDom" = "*" ] && [ "$cronDow" = "*" ]; }; then
+        # Both day-of-month and day-of-week are wildcards, but month might be constrained
+        if [ "$cronMonth" != "*" ]; then
+            # Month is constrained with day boundary crossing - not supported
+            echo_t "XCONF SCRIPT: LocalTime conversion with month constraint crosses day boundary [$cronExpr]; not supported" >> $XCONF_LOG_FILE
+            echo "INVALID"
+        else
+            # All date fields unconstrained
+            echo "$utcMin $utcHr $cronDom $cronMonth $cronDow"
+        fi
     elif [ "$cronDom" != "*" ] && [ "$cronDow" = "*" ]; then
         # Day-of-month only with boundary crossing - adjust the day
+        # Only scalar numeric day/month fields can be shifted safely here.
+        case "$cronDom:$cronMonth" in
+            *[!0-9:]*|:*|*:)
+                echo_t "XCONF SCRIPT: LocalTime conversion with unsupported day/month constraint [$cronExpr]" >> "$XCONF_LOG_FILE"
+                echo "INVALID"
+                return
+                ;;
+        esac
+        cronDom=$(awk -v value="$cronDom" 'BEGIN { print value + 0 }')
+        cronMonth=$(awk -v value="$cronMonth" 'BEGIN { print value + 0 }')
+        if [ "$cronDom" -lt 1 ] || [ "$cronDom" -gt 31 ] || [ "$cronMonth" -lt 0 ] || [ "$cronMonth" -gt 11 ]; then
+            echo_t "XCONF SCRIPT: LocalTime conversion with invalid day/month constraint [$cronExpr]" >> "$XCONF_LOG_FILE"
+            echo "INVALID"
+            return
+        fi
+
         newDom=$((cronDom + dayOffset))
         newMonth=$cronMonth
         currentYear=$(date +%Y)
 
         if [ $newDom -lt 1 ]; then
             newMonth=$((cronMonth - 1))
-            [ $newMonth -lt 1 ] && { newMonth=12; currentYear=$((currentYear - 1)); }
+            [ $newMonth -lt 0 ] && { newMonth=11; currentYear=$((currentYear - 1)); }
             newDom=$((newDom + $(getDaysInMonth $newMonth $currentYear)))
         elif [ $newDom -gt $(getDaysInMonth $cronMonth $currentYear) ]; then
             newMonth=$((cronMonth + 1))
-            [ $newMonth -gt 12 ] && { newMonth=1; currentYear=$((currentYear + 1)); }
+            [ $newMonth -gt 11 ] && { newMonth=0; currentYear=$((currentYear + 1)); }
             newDom=$((newDom - $(getDaysInMonth $cronMonth $currentYear)))
         fi
 
         echo_t "XCONF SCRIPT: Adjusted day from $cronDom/$cronMonth to $newDom/$newMonth for UTC conversion (offset: $dayOffset)" >> $XCONF_LOG_FILE
         echo "$utcMin $utcHr $newDom $newMonth *"
     elif [ "$cronDom" = "*" ] && [ "$cronDow" != "*" ]; then
-        # Day-of-week only with boundary crossing - adjust the day-of-week
-        newDow=$((cronDow + dayOffset))
-        [ $newDow -lt 1 ] && newDow=$((newDow + 7))
-        [ $newDow -gt 7 ] && newDow=$((newDow - 7))
+        # Day-of-week only with boundary crossing
+        if [ "$cronMonth" != "*" ]; then
+            # Month is constrained with day-of-week - not supported
+            echo_t "XCONF SCRIPT: LocalTime conversion with month constraint and day-of-week crosses day boundary [$cronExpr]; not supported" >> $XCONF_LOG_FILE
+            echo "INVALID"
+        else
+            # Only scalar numeric day-of-week can be adjusted safely.
+            case "$cronDow" in
+                *[!0-9]*)
+                    echo_t "XCONF SCRIPT: LocalTime conversion with unsupported day-of-week constraint [$cronExpr]" >> "$XCONF_LOG_FILE"
+                    echo "INVALID"
+                    return
+                    ;;
+            esac
+            cronDow=$(awk -v value="$cronDow" 'BEGIN { print value + 0 }')
+            if [ "$cronDow" -lt 1 ] || [ "$cronDow" -gt 7 ]; then
+                echo_t "XCONF SCRIPT: LocalTime conversion with invalid day-of-week constraint [$cronExpr]" >> "$XCONF_LOG_FILE"
+                echo "INVALID"
+                return
+            fi
 
-        echo_t "XCONF SCRIPT: Adjusted day-of-week from $cronDow to $newDow for UTC conversion (offset: $dayOffset)" >> $XCONF_LOG_FILE
-        echo "$utcMin $utcHr * * $newDow"
+            # Adjust day-of-week only
+            newDow=$((cronDow + dayOffset))
+            [ $newDow -lt 1 ] && newDow=$((newDow + 7))
+            [ $newDow -gt 7 ] && newDow=$((newDow - 7))
+
+            echo_t "XCONF SCRIPT: Adjusted day-of-week from $cronDow to $newDow for UTC conversion (offset: $dayOffset)" >> $XCONF_LOG_FILE
+            echo "$utcMin $utcHr * * $newDow"
+        fi
     else
         # Both day-of-month and day-of-week constrained with boundary crossing - not supported
         echo_t "XCONF SCRIPT: LocalTime conversion with both day-of-month and day-of-week constraints crosses day boundary [$cronExpr]; not supported" >> $XCONF_LOG_FILE
@@ -326,14 +376,14 @@ fi
                   cronPattern=$(convertLocalCronToUTC "$cronPattern")
                   if [ "$cronPattern" = "INVALID" ]
                   then
-                       echo_t "XCONF SCRIPT: LocalTime zone mode: device offset unavailable/invalid; falling back to UTC" >> $XCONF_LOG_FILE
+                       echo_t "XCONF SCRIPT: LocalTime cron conversion failed; falling back to UTC" >> "$XCONF_LOG_FILE"
                        t2ValNotify "FW_DL_TIME_MODE_split" "FallbackToUTC"
                        cronPattern="$originalCron"
                   else
                        echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                        t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
                   fi
-              elif [ "$timeZoneMode" != "LocalTime" ]
+              elif [ "$timeZoneMode" = "UTC" ]
               then
                   echo_t "XCONF SCRIPT: TimeZoneMode=UTC; UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                   t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
