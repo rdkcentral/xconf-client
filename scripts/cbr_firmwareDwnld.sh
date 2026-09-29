@@ -18,6 +18,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
+
+#for demo to see the pushand commit#
+
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
 source /lib/rdk/getpartnerid.sh
