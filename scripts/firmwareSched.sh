@@ -265,6 +265,7 @@ fi
                        t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
                   fi
               else
+                  echo_t "XCONF SCRIPT: TimeZoneMode=UTC; UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                   t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
               fi
            fi
