@@ -145,14 +145,14 @@ convertLocalCronToUTC()
 
     cronTotal=$((10#$cronHr * 60 + 10#$cronMin))
 
-    timezoneOffsetSec=$(dmcli eRT getv Device.Time.TimeOffset 2>/dev/null | awk -F': ' '/value:/ {print $2}' | tr -d '\r')
+    timezoneOffsetSec=$(dmcli eRT getv Device.Time.TimeOffset 2>/dev/null | grep "value:" | awk '{print $NF}')
     if [ -z "$timezoneOffsetSec" ] || ! echo "$timezoneOffsetSec" | grep -Eq '^-?[0-9]+$'; then
         echo "INVALID"
         return
     fi
 
     timezoneOffset=$((timezoneOffsetSec / 60))
-    echo_t "XCONF SCRIPT: Device.Time.TimeOffset=$timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
+    echo_t "XCONF SCRIPT: Device timezone offset is $timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
 
     utcTotal=$((cronTotal - timezoneOffset))
 
