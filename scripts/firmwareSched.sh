@@ -119,13 +119,16 @@ convertLocalCronToUTC()
     fi
 
     set -- $cronExpr
-    if [ $# -lt 2 ]; then
+    if [ $# -lt 5 ]; then
         echo "INVALID"
         return
     fi
 
     cronMin=$1
     cronHr=$2
+    cronDom=$3      # day-of-month
+    cronMonth=$4    # month
+    cronDow=$5      # day-of-week
 
     case "$cronMin$cronHr" in
         *[!0-9]*)
@@ -156,21 +159,33 @@ convertLocalCronToUTC()
     echo_t "XCONF SCRIPT: Device timezone offset is $timezoneOffsetSec sec ($timezoneOffset min)" >> $XCONF_LOG_FILE
 
     utcTotal=$((cronTotal - timezoneOffset))
+    dayOffset=0
 
+    # Handle day boundary crossing
     while [ $utcTotal -lt 0 ]
     do
         utcTotal=$((utcTotal + 1440))
+        dayOffset=$((dayOffset - 1))
     done
 
     while [ $utcTotal -ge 1440 ]
     do
         utcTotal=$((utcTotal - 1440))
+        dayOffset=$((dayOffset + 1))
     done
 
     utcHr=$((utcTotal / 60))
     utcMin=$((utcTotal % 60))
 
-    echo "$utcMin $utcHr * * *"
+    if [ "$cronDom" = "*" ] && [ "$cronDow" = "*" ]; then
+        echo "$utcMin $utcHr * * *"
+    elif [ "$dayOffset" = "0" ]; then
+        # Time conversion didn't cross day boundary - preserve day fields
+        echo "$utcMin $utcHr $cronDom $cronMonth $cronDow"
+    else
+       echo_t "XCONF SCRIPT: LocalTime conversion crosses day boundary for non-daily schedule [$cronExpr]" >> $XCONF_LOG_FILE
+       echo "INVALID"
+    fi
 }
 ##############################################################
 #                                                            #
@@ -264,7 +279,8 @@ fi
                        echo_t "XCONF SCRIPT: TimeZoneMode=$timeZoneMode; Original Local Cron=$originalCron; Converted UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                        t2ValNotify "FW_DL_TIME_MODE_split" "LocalTime"
                   fi
-              else
+              elif [ "$timeZoneMode" != "LocalTime" ]
+              then
                   echo_t "XCONF SCRIPT: TimeZoneMode=UTC; UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                   t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
               fi
