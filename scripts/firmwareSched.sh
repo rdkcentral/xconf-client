@@ -401,6 +401,9 @@ fi
                   echo_t "XCONF SCRIPT: TimeZoneMode=UTC; UTC Cron=$cronPattern" >> "$XCONF_LOG_FILE"
                   t2ValNotify "FW_DL_TIME_MODE_split" "UTC"
               fi
+            else
+                echo_t "XCONF SCRIPT: Timezone mode not yet supported on this platform; falling back to UTC schedule." >> "$XCONF_LOG_FILE"
+                t2ValNotify "FW_DL_TIME_MODE_split" "TimezoneUnsupported"
            fi
 
            if [ "$cronPattern" != "" ]
