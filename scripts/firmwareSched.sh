@@ -170,6 +170,7 @@ convertLocalCronToUTC()
     utcMin=$((utcTotal % 60))
 
     echo "$utcMin $utcHr * * *"
+}
 ##############################################################
 #                                                            #
 #                          Main App                          #
