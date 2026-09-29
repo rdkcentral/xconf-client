@@ -109,6 +109,29 @@ normalizeTimeZoneMode()
     esac
 }
 
+getDaysInMonth()
+{
+    month=$1
+    year=${2:-$(date +%Y)}
+
+    case $month in
+        1|3|5|7|8|10|12)
+            echo 31
+            ;;
+        4|6|9|11)
+            echo 30
+            ;;
+        2)
+            # Check leap year
+            if [ $((year % 4)) -eq 0 ] && { [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; }; then
+                echo 29
+            else
+                echo 28
+            fi
+            ;;
+    esac
+}
+
 convertLocalCronToUTC()
 {
     cronExpr="$1"
@@ -118,7 +141,13 @@ convertLocalCronToUTC()
         return
     fi
 
+    globbingWasDisabled=false
+    case "$-" in
+        *f*) globbingWasDisabled=true ;;
+        *) set -f ;;
+    esac
     set -- $cronExpr
+    [ "$globbingWasDisabled" = "true" ] || set +f
     if [ $# -lt 5 ]; then
         echo "INVALID"
         return
@@ -177,14 +206,39 @@ convertLocalCronToUTC()
     utcHr=$((utcTotal / 60))
     utcMin=$((utcTotal % 60))
 
-    if [ "$cronDom" = "*" ] && [ "$cronDow" = "*" ]; then
-        echo "$utcMin $utcHr * * *"
-    elif [ "$dayOffset" = "0" ]; then
-        # Time conversion didn't cross day boundary - preserve day fields
+    if { [ "$cronDom" = "*" ] && [ "$cronDow" = "*" ]; } || [ "$dayOffset" = "0" ]; then
+        # No adjustment needed - convert time only, preserve all date fields
         echo "$utcMin $utcHr $cronDom $cronMonth $cronDow"
+    elif [ "$cronDom" != "*" ] && [ "$cronDow" = "*" ]; then
+        # Day-of-month only with boundary crossing - adjust the day
+        newDom=$((cronDom + dayOffset))
+        newMonth=$cronMonth
+        currentYear=$(date +%Y)
+
+        if [ $newDom -lt 1 ]; then
+            newMonth=$((cronMonth - 1))
+            [ $newMonth -lt 1 ] && { newMonth=12; currentYear=$((currentYear - 1)); }
+            newDom=$((newDom + $(getDaysInMonth $newMonth $currentYear)))
+        elif [ $newDom -gt $(getDaysInMonth $cronMonth $currentYear) ]; then
+            newMonth=$((cronMonth + 1))
+            [ $newMonth -gt 12 ] && { newMonth=1; currentYear=$((currentYear + 1)); }
+            newDom=$((newDom - $(getDaysInMonth $cronMonth $currentYear)))
+        fi
+
+        echo_t "XCONF SCRIPT: Adjusted day from $cronDom/$cronMonth to $newDom/$newMonth for UTC conversion (offset: $dayOffset)" >> $XCONF_LOG_FILE
+        echo "$utcMin $utcHr $newDom $newMonth *"
+    elif [ "$cronDom" = "*" ] && [ "$cronDow" != "*" ]; then
+        # Day-of-week only with boundary crossing - adjust the day-of-week
+        newDow=$((cronDow + dayOffset))
+        [ $newDow -lt 1 ] && newDow=$((newDow + 7))
+        [ $newDow -gt 7 ] && newDow=$((newDow - 7))
+
+        echo_t "XCONF SCRIPT: Adjusted day-of-week from $cronDow to $newDow for UTC conversion (offset: $dayOffset)" >> $XCONF_LOG_FILE
+        echo "$utcMin $utcHr * * $newDow"
     else
-       echo_t "XCONF SCRIPT: LocalTime conversion crosses day boundary for non-daily schedule [$cronExpr]" >> $XCONF_LOG_FILE
-       echo "INVALID"
+        # Both day-of-month and day-of-week constrained with boundary crossing - not supported
+        echo_t "XCONF SCRIPT: LocalTime conversion with both day-of-month and day-of-week constraints crosses day boundary [$cronExpr]; not supported" >> $XCONF_LOG_FILE
+        echo "INVALID"
     fi
 }
 ##############################################################
