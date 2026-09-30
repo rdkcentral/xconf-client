@@ -19,7 +19,7 @@
 # limitations under the License.
 ##########################################################################
 
-#for demo to see the pushand commit#
+# for demo to see the pushand commit#
 
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
