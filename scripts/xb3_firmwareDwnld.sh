@@ -83,7 +83,7 @@ UseCodebig=0
 
 validateFirmwareLocation()
 {
-    printf '%s\n' "$1" | grep -Eq '^https://[A-Za-z0-9._:/?&=%-]+$'
+    printf '%s\n' "$1" | grep -Eq '^https://[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'
 }
 
 validateFirmwareFilename()
@@ -265,9 +265,7 @@ do_Codebig_signing()
             domain_name=`echo $xconf_url | cut -d / -f3`
             getRequestType $domain_name
             request_type=$?
-            #SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
-            #eval $SIGN_CMD > $SIGN_FILE
-	    configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
+            configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
             CB_SIGNED_REQUEST=`cat $SIGN_FILE`
             rm -f $SIGN_FILE
       else
@@ -276,11 +274,8 @@ do_Codebig_signing()
             if [ "$domainName" == "$DAC15_DOMAIN" ]; then
                 request_type=14
             fi
-            #SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
-            #echo $SIGN_CMD >>$XCONF_LOG_FILE
             echo -e "\n"
-	    configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
-            #eval $SIGN_CMD > $SIGN_FILE
+            configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
             cbSignedimageHTTPURL=`cat $SIGN_FILE`
             rm -f $SIGN_FILE
 #            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
@@ -443,7 +438,7 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-	partnerId=$(getPartnerId | sed 's/[^A-Za-z0-9._-]//g')
+        partnerId=$(getPartnerId | sed 's/[^A-Za-z0-9._-]//g')
         accountId=$(getAccountId | sed 's/[^A-Za-z0-9._-]//g')
         unitActivationStatus=`syscfg get unit_activated`
 
@@ -571,7 +566,7 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
                     serverUrl=""
                     authorizationHeader=""
-		    if ! validateFirmwareLocation "$firmwareLocation"; then
+                    if ! validateFirmwareLocation "$firmwareLocation"; then
                         echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
                         return 1
                     fi
@@ -1254,7 +1249,7 @@ do
               exit 1
           fi
 
-	  if ! validateFirmwareLocation "$serverUrl"; then
+          if ! validateFirmwareLocation "$serverUrl"; then
               echo_t "Invalid serverUrl" >> $XCONF_LOG_FILE
               exit 1
           fi

@@ -623,11 +623,9 @@ getFirmwareUpgDetail()
                 request_type=$?
 
                 ########Get Signed URL from configparamgen.################
-		SIGN_FILE="/tmp/.signedRequest.$$"
+                SIGN_FILE="/tmp/.signedRequest.$$"
                 umask 077
                 configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
-                #SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
-                #eval $SIGN_CMD > /nvram/.signedRequest
                 echo_t "configparamgen success" >> $XCONF_LOG_FILE
                 CB_SIGNED_REQUEST=`cat "$SIGN_FILE"`
                 SIGNED_REQUEST_LOG=`echo $CB_SIGNED_REQUEST | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
@@ -643,9 +641,8 @@ getFirmwareUpgDetail()
             CURL_CMD_LOG=`echo $CURL_CMD | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
             echo_t "CURL_CMD:$CURL_CMD_LOG"
             echo_t "CURL_CMD:$CURL_CMD_LOG" >> $XCONF_LOG_FILE
-            #result= eval "$CURL_CMD" > $HTTP_CODE
-	    curl $CERT_STATUS --connect-timeout 30 --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -o "$FILENAME" "$CB_SIGNED_REQUEST" -m 30 > "$HTTP_CODE"
-	    ret=$?
+            curl $CERT_STATUS --connect-timeout 30 --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -o "$FILENAME" "$CB_SIGNED_REQUEST" -m 30 > "$HTTP_CODE"
+            ret=$?
 
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
@@ -753,7 +750,7 @@ getFirmwareUpgDetail()
             else
                 if [ "$UseCodebig" -eq "1" ] && [ $CDL_SERVER_OVERRIDE -eq 0 ];then
 
-			if ! validateFirmwareLocation "$firmwareLocation"; then
+                        if ! validateFirmwareLocation "$firmwareLocation"; then
                             echo_t "Invalid firmwareLocation"
                             return 1
                         fi
@@ -783,11 +780,10 @@ getFirmwareUpgDetail()
                         #SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
                         #echo $SIGN_CMD >>$XCONF_LOG_FILE
                         echo -e "\n"
-			SIGN_FILE="/tmp/.signedRequest.$$"
+                        SIGN_FILE="/tmp/.signedRequest.$$"
                         umask 077
 
                         configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
-                        #eval $SIGN_CMD > /nvram/.signedRequest
                         cbSignedimageHTTPURL1=`cat "$SIGN_FILE"`
                         cbSignedimageHTTPURL_Log=`echo $cbSignedimageHTTPURL1 | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
 

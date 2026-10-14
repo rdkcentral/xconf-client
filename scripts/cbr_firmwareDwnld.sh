@@ -333,7 +333,7 @@ get_Codebigconfig()
 
 validateFirmwareLocation()
 {
-     echo "$1" | grep -Eq  '^https://[A-Za-z0-9./-]+$'
+     printf '%s\n' "$1" | grep -Eq  '^https://[A-Za-z0-9._-]+(/[A-Za-z0-9._/-]*)?$'
 }
  
 validateFirmwareFilename()
@@ -354,7 +354,7 @@ do_Codebig_signing()
             domain_name=`echo $xconf_url | cut -d / -f3`
             getRequestType $domain_name
             request_type=$?    
-	    GetServiceUrl "$request_type" "$JSONSTR" > "$SIGN_FILE"
+            GetServiceUrl "$request_type" "$JSONSTR" > "$SIGN_FILE"
             CB_SIGNED_REQUEST=`cat $SIGN_FILE`	    
             rm -f $SIGN_FILE
       else
@@ -363,8 +363,8 @@ do_Codebig_signing()
             if [ "$domainName" == "$DAC15_DOMAIN" ]; then
                 request_type=14
             fi
-	    echo_t "GetServiceUrl request_type=$request_type imageHTTPURL=$imageHTTPURL" >> $XCONF_LOG_FILE
-	    GetServiceUrl "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
+            echo_t "GetServiceUrl request_type=$request_type imageHTTPURL=$imageHTTPURL" >> $XCONF_LOG_FILE
+            GetServiceUrl "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
             cbSignedimageHTTPURL=`cat $SIGN_FILE`    
             rm -f $SIGN_FILE
 #            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
@@ -437,7 +437,7 @@ useCodebigRequest()
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`"  >> $XCONF_LOG_FILE
-	    HTTP_CODE=$("$CURL_PATH/curl" --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -o "$FWDL_JSON" "$CB_SIGNED_REQUEST" $CERT_STATUS --connect-timeout 30 -m 30)
+            HTTP_CODE=$("$CURL_PATH/curl" --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -o "$FWDL_JSON" "$CB_SIGNED_REQUEST" $CERT_STATUS --connect-timeout 30 -m 30)
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
@@ -709,11 +709,11 @@ getFirmwareUpgDetail()
                 if [ "$curr_conn_type" != "direct" ]; then 
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" 
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
-		    if ! validateFirmwareLocation "$firmwareLocation"; then
+                    if ! validateFirmwareLocation "$firmwareLocation"; then
                         echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $firmwareLocation" >> $XCONF_LOG_FILE
                         return 1
                     fi
- 
+ 
                     if ! validateFirmwareFilename "$firmwareFilename"; then
                         echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $firmwareFilename" >> $XCONF_LOG_FILE
                         return 1
@@ -907,11 +907,11 @@ fetchFirmwareDetail()
     image_upg_avl=1;
 
     if [ "$curr_conn_type" != "direct" ]; then
-	if ! validateFirmwareLocation "$firmwareLocation"; then
+        if ! validateFirmwareLocation "$firmwareLocation"; then
             echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $firmwareLocation" >> $XCONF_LOG_FILE
             return 1
-	fi
- 
+        fi
+
         if ! validateFirmwareFilename "$firmwareFilename"; then
             echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $firmwareFilename" >> $XCONF_LOG_FILE
             return 1
@@ -1445,7 +1445,7 @@ do
              if [ "$direct_CDN" = "true" ] && [ $CDL_SERVER_OVERRIDE != 1 ] && [ "x$CodeBigEnable" != "xtrue" ];then
                  echo_t "XCONF SCRIPT stateRedRecovery : $firmware_URL/$firmwareFilename" >> $XCONF_LOG_FILE
                  echo_t "XCONF SCRIPT stateRedRecovery : $firmwareFilename " >> $XCONF_LOG_FILE
-		 if ! validateFirmwareLocation "$firmware_URL"; then
+                 if ! validateFirmwareLocation "$firmware_URL"; then
                      echo_t "XCONF SCRIPT : Invalid firmware_URL: $firmware_URL" >> $XCONF_LOG_FILE
                      exit 1
                  fi
@@ -1458,7 +1458,7 @@ do
                  set_url_stat=$?
              else
                  cert="$(getStateRedCreds)"
-		 if ! validateFirmwareLocation "$firmwareLocation"; then
+                 if ! validateFirmwareLocation "$firmwareLocation"; then
                      echo_t "XCONF SCRIPT : Invalid firmwareLocation: $firmwareLocation" >> $XCONF_LOG_FILE
                      exit 1
                  fi
@@ -1504,7 +1504,7 @@ do
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 
-	      if ! validateFirmwareLocation "$firmwareLocation"; then
+              if ! validateFirmwareLocation "$firmwareLocation"; then
                   echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
                   exit 1
               fi
