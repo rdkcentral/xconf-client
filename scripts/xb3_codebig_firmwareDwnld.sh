@@ -96,6 +96,16 @@ conn_str="Direct"
 CodebigAvailable=0
 UseCodebig=0
 
+validateFirmwareLocation()
+{
+    printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._/:%-]+$'
+}
+
+validateFirmwareFilename()
+{
+    printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._/:%-]+$'
+}
+
 # NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
 if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
         /etc/rdkfwupgrader_message.sh
@@ -571,8 +581,8 @@ getFirmwareUpgDetail()
 		if [ "$firmwareName_configured" != "" ]; then
                     currentVersion=$firmwareName_configured
                 fi
-                partnerId=$(getPartnerId)
-                accountId=$(getAccountId)
+                partnerId=$(getPartnerId | sed 's/[^A-Za-z0-9._-]//g')
+                accountId=$(getAccountId | sed 's/[^A-Za-z0-9._-]//g')
                 unitActivationStatus=`syscfg get unit_activated`
 
                 if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
@@ -594,7 +604,7 @@ getFirmwareUpgDetail()
 			echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
 			CURL_CMD="curl $CERT_STATUS --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
 			echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-			result= eval "$CURL_CMD" > $HTTP_CODE
+			curl $CERT_STATUS --connect-timeout 30 --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -d "$POSTSTR" -o "$FILENAME" "$xconf_url" -m 30 > "$HTTP_CODE"
 			ret=$?
 
 			HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
@@ -613,13 +623,16 @@ getFirmwareUpgDetail()
                 request_type=$?
 
                 ########Get Signed URL from configparamgen.################
-                SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
-                eval $SIGN_CMD > /nvram/.signedRequest
+		SIGN_FILE="/tmp/.signedRequest.$$"
+                umask 077
+                configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
+                #SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
+                #eval $SIGN_CMD > /nvram/.signedRequest
                 echo_t "configparamgen success" >> $XCONF_LOG_FILE
-                CB_SIGNED_REQUEST=`cat /nvram/.signedRequest`
+                CB_SIGNED_REQUEST=`cat "$SIGN_FILE"`
                 SIGNED_REQUEST_LOG=`echo $CB_SIGNED_REQUEST | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
                 echo_t "CB_SIGNED_REQUEST : $SIGNED_REQUEST_LOG" >>$XCONF_LOG_FILE
-                rm -f /nvram/.signedRequest
+                rm -f "$SIGN_FILE"
                 rm -f /nvram/adjdate.txt
 
                 echo_t "XCONF SCRIPT : Executing CURL for  https://xconf-prod.codebig2.net "
@@ -630,8 +643,9 @@ getFirmwareUpgDetail()
             CURL_CMD_LOG=`echo $CURL_CMD | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
             echo_t "CURL_CMD:$CURL_CMD_LOG"
             echo_t "CURL_CMD:$CURL_CMD_LOG" >> $XCONF_LOG_FILE
-            result= eval "$CURL_CMD" > $HTTP_CODE
-            ret=$?
+            #result= eval "$CURL_CMD" > $HTTP_CODE
+	    curl $CERT_STATUS --connect-timeout 30 --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -o "$FILENAME" "$CB_SIGNED_REQUEST" -m 30 > "$HTTP_CODE"
+	    ret=$?
 
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
@@ -739,6 +753,15 @@ getFirmwareUpgDetail()
             else
                 if [ "$UseCodebig" -eq "1" ] && [ $CDL_SERVER_OVERRIDE -eq 0 ];then
 
+			if ! validateFirmwareLocation "$firmwareLocation"; then
+                            echo_t "Invalid firmwareLocation"
+                            return 1
+                        fi
+
+                        if ! validateFirmwareFilename "$firmwareFilename"; then
+                            echo_t "Invalid firmwareFilename"
+                            return 1
+                        fi
                         imageHTTPURL="$firmwareLocation/$firmwareFilename"
                         domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
                         imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
@@ -757,16 +780,20 @@ getFirmwareUpgDetail()
                             echo_t "XCONF SCRIPT : Get Signed URL from configparamgen for ssr response"
                             request_type=1
                         fi
-                        SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
-                        echo $SIGN_CMD >>$XCONF_LOG_FILE
+                        #SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
+                        #echo $SIGN_CMD >>$XCONF_LOG_FILE
                         echo -e "\n"
-                        eval $SIGN_CMD > /nvram/.signedRequest
-                        cbSignedimageHTTPURL1=`cat /nvram/.signedRequest`
+			SIGN_FILE="/tmp/.signedRequest.$$"
+                        umask 077
+
+                        configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
+                        #eval $SIGN_CMD > /nvram/.signedRequest
+                        cbSignedimageHTTPURL1=`cat "$SIGN_FILE"`
                         cbSignedimageHTTPURL_Log=`echo $cbSignedimageHTTPURL1 | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
 
                         echo cbSignedimageHTTPURL1 : $cbSignedimageHTTPURL_Log
                         echo $cbSignedimageHTTPURL_Log >>$XCONF_LOG_FILE
-                        rm -f /nvram/.signedRequest
+                        rm -f "$SIGN_FILE"
                         rm -f /nvram/adjdate.txt
 
                         cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL1 | sed 's|stb_cdl%2F|stb_cdl/|g'`
