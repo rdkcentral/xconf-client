@@ -979,6 +979,37 @@ fetchFirmwareDetail()
     fi
 }
 
+TIME_OFFSET_RETRY_INTERVAL=30
+TIME_OFFSET_MAX_RETRIES=120
+time_offset_wait_expired=0
+
+isTimeOffsetReady()
+{
+    [ "$UTC_ENABLE" != "true" ] && return 0
+    [ $time_offset_wait_expired -eq 1 ] && return 0
+    [ -n "`sysevent get ipv4-timeoffset`" ] || [ -n "`sysevent get ipv6-timeoffset`" ]
+}
+
+waitForTimeOffset()
+{
+    offset_retry=0
+    while ! isTimeOffsetReady
+    do
+        if [ $offset_retry -ge $TIME_OFFSET_MAX_RETRIES ]; then
+            echo_t "XCONF SCRIPT : Time offset still unavailable after $((offset_retry*TIME_OFFSET_RETRY_INTERVAL)) sec, using current local time"
+            echo_t "XCONF SCRIPT : Time offset still unavailable after $((offset_retry*TIME_OFFSET_RETRY_INTERVAL)) sec, using current local time" >> $XCONF_LOG_FILE
+            time_offset_wait_expired=1
+            break
+        fi
+        if [ $offset_retry -eq 0 ]; then
+            echo_t "XCONF SCRIPT : Time offset not available yet, waiting before scheduling reboot"
+            echo_t "XCONF SCRIPT : Time offset not available yet, waiting before scheduling reboot" >> $XCONF_LOG_FILE
+        fi
+        sleep $TIME_OFFSET_RETRY_INTERVAL
+        offset_retry=$((offset_retry+1))
+    done
+}
+
 calcRandTime()
 {
     rand_hr=0
@@ -1044,6 +1075,7 @@ calcRandTime()
     # device reboot time 
     #
     if [ $2 -eq '1' ]; then
+        waitForTimeOffset
        
         if [ "$3" == "r" ]; then
             echo_t "XCONF SCRIPT : Device reboot time being calculated in maintenance window"
@@ -1205,6 +1237,13 @@ checkMaintenanceWindow()
     fi
     echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
+
+    if ! isTimeOffsetReady; then
+        echo_t "XCONF SCRIPT : Time offset not available yet, treating as outside maintenance window"
+        echo_t "XCONF SCRIPT : Time offset not available yet, treating as outside maintenance window" >> $XCONF_LOG_FILE
+        reb_window=0
+        return
+    fi
 
     if [ "$UTC_ENABLE" == "true" ]
     then
@@ -1752,6 +1791,15 @@ while [ $reboot_device_success -eq 0 ]; do
                 break
             fi
         done 
+
+        if [ $http_reboot_ready_stat -eq 0 ]; then
+            checkMaintenanceWindow
+            if [ $reb_window -ne 1 ]; then
+                echo_t "XCONF SCRIPT : Outside maintenance window at reboot time, rescheduling reboot"
+                echo_t "XCONF SCRIPT : Outside maintenance window at reboot time, rescheduling reboot" >> $XCONF_LOG_FILE
+                http_reboot_ready_stat=1
+            fi
+        fi
 
     else
         checkrfcstatus
