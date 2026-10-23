@@ -593,7 +593,49 @@ int main(int argc,char *argv[])
              */
 
              if (((argv[2]) != NULL) && ((argv[3]) != NULL)) {
+                  
+		  size_t i;
+                  int valid_url = 1;
+                  int valid_filename = 1;
 
+                  /* Require HTTPS and allow only approved URL characters. */
+                  if (strncmp(argv[2], "https://", 8) != 0) {
+                      valid_url = 0;
+                  }
+
+                  for (i = 0; argv[2][i] != '\0'; i++) {
+                      unsigned char c = (unsigned char)argv[2][i];
+                      if (!((c >= 'A' && c <= 'Z') ||
+                          (c >= 'a' && c <= 'z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '.' || c == '_' || c == '/' ||
+                          c == ':' || c == '%' || c == '-')) {
+                          valid_url = 0;
+                          break;
+                      }
+                  }
+
+                  for (i = 0; argv[3][i] != '\0'; i++) {
+                      unsigned char c = (unsigned char)argv[3][i];
+                      if (!((c >= 'A' && c <= 'Z') ||
+                          (c >= 'a' && c <= 'z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '.' || c == '_' || c == '-')) {
+                          valid_filename = 0;
+                          break;
+                      }
+                  }
+
+                  if (argv[3][0] == '-' ||
+                      strcmp(argv[3], ".") == 0 ||
+                      strcmp(argv[3], "..") == 0) {
+                      valid_filename = 0;
+                  }
+
+                  if (!valid_url || !valid_filename) {
+                      printf("XCONF BIN: Invalid URL or filename.\n");
+                      return -1; /* Adapt to the existing function's error handling. */
+                  }
                   pfilename = argv[3];
 
                   if ((argv[4]) != NULL) {
@@ -605,9 +647,9 @@ int main(int argc,char *argv[])
                           ERR_CHK(rc);
                           ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                        } else if((strstr(argv[4], "--cert")) && ((argv[2]) != NULL)) {
-                            rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "%s '%s/%s'", argv[4], argv[2], pfilename);
+                            printf("XCONF BIN: Certificate arguments must be passed separately.\n");
+			    ret_code = -1;
                             ERR_CHK(rc);
-                            ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                        } else {
                             printf("XCONF BIN : Unknown 3rd argument %s . Failed to complete set_http_url operation.\n", argv[4]);
                        }
@@ -618,13 +660,13 @@ int main(int argc,char *argv[])
 
                       syscfg_get(NULL, "SWDLDirectEnable", buf, sizeof(buf));
                       if (strcmp(buf, "true") == 0) {
-                        rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "'%s'", argv[2]);
+                        rc = strcpy_s(pHttpUrl, sizeof(pHttpUrl), argv[2]);
                         if(rc < EOK ) {
                           ERR_CHK(rc);
                         }
                       }
                       else {
-                        rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "'%s/%s'", argv[2], pfilename);
+                        rc = snprintf_s(pHttpUrl, sizeof(pHttpUrl), sizeof(pHttpUrl) - 1, "%s/%s", argv[2], pfilename);
                         if(rc < EOK ) {
                           ERR_CHK(rc);
                         }
