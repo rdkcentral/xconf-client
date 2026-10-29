@@ -45,6 +45,14 @@ wan_mac_interface=$(getWanMacInterfaceName)
 BIN_PATH=/fss/gw/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
+
+cleanup_download_lock()
+{
+    [ -f "$DOWNLOAD_INPROGRESS" ] && rm -f "$DOWNLOAD_INPROGRESS"
+}
+
+trap cleanup_download_lock EXIT HUP INT TERM
+
 deferReboot="/tmp/.deferringreboot"
 NO_DOWNLOAD="/tmp/.downloadBreak"
 ABORT_REBOOT="/tmp/AbortReboot"
@@ -567,7 +575,7 @@ getFirmwareUpgDetail()
         if [ "$UseCodebig" -eq "1" ] && [ $CDL_SERVER_OVERRIDE -eq 0 ];then
             SECONDV=`dmcli eRT getv Device.X_CISCO_COM_CableModem.TimeOffset | grep value | cut -d ":" -f 3 | tr -d ' ' `
             serial=`dmcli eRT getv Device.DeviceInfo.SerialNumber | grep value | cut -d ":" -f 3 | tr -d ' ' `
-            CB_CAPABILITIES='&capabilities=rebootDecoupled&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
+            CB_CAPABILITIES='&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
             request_type=2
 
             echo_t "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FILE
@@ -597,7 +605,7 @@ getFirmwareUpgDetail()
 		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
                         echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
-                        POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&dlCertBundle=${instBundles}&dlAppBundle=${instAppBundles}&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+                        POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&dlCertBundle=${instBundles}&dlAppBundle=${instAppBundles}&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl"
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
 			# Query the  XCONF Server, using TLS 1.2
@@ -623,8 +631,8 @@ getFirmwareUpgDetail()
                 request_type=$?
 
                 ########Get Signed URL from configparamgen.################
-                SIGN_FILE="/tmp/.signedRequest.$$"
                 umask 077
+                SIGN_FILE=$(mktemp "/tmp/.signedRequest.XXXXXX") || return 1
                 configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
                 echo_t "configparamgen success" >> $XCONF_LOG_FILE
                 CB_SIGNED_REQUEST=`cat "$SIGN_FILE"`
@@ -780,9 +788,8 @@ getFirmwareUpgDetail()
                         #SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
                         #echo $SIGN_CMD >>$XCONF_LOG_FILE
                         echo -e "\n"
-                        SIGN_FILE="/tmp/.signedRequest.$$"
                         umask 077
-
+                        SIGN_FILE=$(mktemp "/tmp/.signedRequest.XXXXXX") || return 1
                         configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
                         cbSignedimageHTTPURL1=`cat "$SIGN_FILE"`
                         cbSignedimageHTTPURL_Log=`echo $cbSignedimageHTTPURL1 | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`

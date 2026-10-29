@@ -70,6 +70,13 @@ BIN_PATH=/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 
+cleanup_download_lock()
+{
+    [ -f "$DOWNLOAD_INPROGRESS" ] && rm -f "$DOWNLOAD_INPROGRESS"
+}
+
+trap cleanup_download_lock EXIT HUP INT TERM
+
 FWDL_JSON=/tmp/response.txt
 
 SIGN_FILE="/tmp/.signedRequest_$$_`date +'%s'`"
@@ -588,7 +595,7 @@ getFirmwareUpgDetail()
         isInStateRed
         stateRed=$?
         if [ "0x$stateRed" == "0x1" ]; then
-            JSONSTR=$JSONSTR'&recovery="true"'
+            JSONSTR=$JSONSTR'&recovery=true'
         fi
 
         if [ "$UseCodebig" = "1" ]; then
