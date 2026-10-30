@@ -45,14 +45,6 @@ wan_mac_interface=$(getWanMacInterfaceName)
 BIN_PATH=/fss/gw/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
-
-cleanup_download_lock()
-{
-    [ -f "$DOWNLOAD_INPROGRESS" ] && rm -f "$DOWNLOAD_INPROGRESS"
-}
-
-trap cleanup_download_lock EXIT HUP INT TERM
-
 deferReboot="/tmp/.deferringreboot"
 NO_DOWNLOAD="/tmp/.downloadBreak"
 ABORT_REBOOT="/tmp/AbortReboot"

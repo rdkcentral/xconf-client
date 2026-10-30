@@ -1234,11 +1234,13 @@ do
 #          CURL_CMD_SSR="curl --connect-timeout 30 --tlsv1.2 --interface $interface $addr_type -w '%{http_code}\n' -fgLo $TMP_PATH/$firmwareFilename '$firmwareLocation/$firmwareFilename'"
           if ! validateFirmwareLocation "$firmwareLocation"; then
               echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
+              rm -f "$DOWNLOAD_INPROGRESS"
               exit 1
           fi
 
           if ! validateFirmwareFilename "$firmwareFilename"; then
               echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
+              rm -f "$DOWNLOAD_INPROGRESS"
               exit 1
           fi
           $BIN_PATH/XconfHttpDl set_http_url "$addr_type -fgL '$firmwareLocation/$firmwareFilename'" "$firmwareFilename" complete_url

@@ -70,13 +70,6 @@ BIN_PATH=/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 
-cleanup_download_lock()
-{
-    [ -f "$DOWNLOAD_INPROGRESS" ] && rm -f "$DOWNLOAD_INPROGRESS"
-}
-
-trap cleanup_download_lock EXIT HUP INT TERM
-
 FWDL_JSON=/tmp/response.txt
 
 SIGN_FILE="/tmp/.signedRequest_$$_`date +'%s'`"
@@ -1459,11 +1452,13 @@ do
                  echo_t "XCONF SCRIPT stateRedRecovery : $firmwareFilename " >> $XCONF_LOG_FILE
                  if ! validateFirmwareLocation "$firmware_URL"; then
                      echo_t "XCONF SCRIPT : Invalid firmware_URL: $firmware_URL" >> $XCONF_LOG_FILE
+                     rm -f "$DOWNLOAD_INPROGRESS"
                      exit 1
                  fi
 
                  if ! validateFirmwareFilename "$firmwareFilename"; then
                      echo_t "XCONF SCRIPT : Invalid firmwareFilename: $firmwareFilename" >> $XCONF_LOG_FILE
+                     rm -f "$DOWNLOAD_INPROGRESS"
                      exit 1
                  fi
 		 XconfHttpDl set_http_url "$firmware_URL" "$firmwareFilename"
