@@ -1252,11 +1252,13 @@ do
 #          echo_t "Codebig CURL_CMD :`echo  "$CURL_CMD_SSR" |  sed -ne 's#'"$authorizationHeader"'#<Hidden authorization-header>#p'`"
           if ! validateFirmwareFilename "$firmwareFilename"; then
               echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
+              rm -f "$DOWNLOAD_INPROGRESS"
               exit 1
           fi
 
           if ! validateFirmwareLocation "$serverUrl"; then
               echo_t "Invalid serverUrl" >> $XCONF_LOG_FILE
+              rm -f "$DOWNLOAD_INPROGRESS"
               exit 1
           fi
           $BIN_PATH/XconfHttpDl set_http_url "$addr_type $CURL_SSR_PARAM" "$firmwareFilename" complete_url
