@@ -290,8 +290,8 @@ do_Codebig_signing()
       else
             request_type=1
             imageHTTPURL=$(printf '%s' "$imageHTTPURL" | tr -d '\r\n')
-	    if ! printf '%s\n' "$imageHTTPURL" |
-                grep -Eq '^https://[A-Za-z0-9:/?&=._%+-]+$'; then
+            if ! printf '%s\n' "$imageHTTPURL" |
+                grep -Eq '^https://[A-Za-z0-9:/._-]+$'; then
                 echo_t "Invalid imageHTTPURL" >> "$XCONF_LOG_FILE"
                 return 1
             fi
@@ -341,11 +341,11 @@ do_Codebig_signing()
                 return 1
             fi
             "$CURL_PATH/curl" \
-                "${CERT_STATUS[@]}" \
+                "$CERT_STATUS" \
                 --connect-timeout 30 \
                 --tlsv1.2 \
                 --interface "$interface" \
-                "${addr_type[@]}" \
+                "$addr_type" \
                 --header "@$auth_tmp" \
                 --write-out '%{http_code}\n' \
                 --fail \
@@ -369,7 +369,19 @@ useDirectRequest()
             CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
             echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
-            HTTP_CODE=`result= eval $CURL_CMD`
+            HTTP_CODE=$(
+                "$CURL_PATH/curl" \
+                    --interface "$interface" \
+                    $addr_type \
+                    -w '%{http_code}\n' \
+                    --tlsv1.2 \
+                    -d "$JSONSTR" \
+                    -o "$FWDL_JSON" \
+                    "$xconf_url" \
+                    $CERT_STATUS \
+                    --connect-timeout 30 \
+                    -m 30
+            )
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
@@ -402,7 +414,18 @@ useCodebigRequest()
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`"  >> $XCONF_LOG_FILE
-            HTTP_CODE=`result= eval $CURL_CMD`
+            HTTP_CODE=$(
+                "$CURL_PATH/curl" \
+                    --interface "$interface" \
+                    $addr_type \
+                    -w '%{http_code}\n' \
+                    --tlsv1.2 \
+                    -o "$FWDL_JSON" \
+                    "$CB_SIGNED_REQUEST" \
+                    $CERT_STATUS \
+                    --connect-timeout 30 \
+                    -m 30
+            )
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
@@ -514,8 +537,8 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        partnerId=$(getPartnerId)
-        accountId=$(getAccountId)
+        partnerId=$(getPartnerId | tr -cd 'A-Za-z0-9._-')
+        accountId=$(getAccountId | tr -cd 'A-Za-z0-9._-')
         unitActivationStatus=`syscfg get unit_activated`
 
         if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
@@ -1573,11 +1596,11 @@ do
            do
                 HTTP_CODE=$(
                 "$CURL_PATH/curl" \
-                        "${CERT_STATUS[@]}" \
+                        "$CERT_STATUS" \
                         --connect-timeout 30 \
                         --tlsv1.2 \
                         --interface "$interface" \
-                        "${addr_type[@]}" \
+                        "$addr_type" \
                         --write-out '%{http_code}\n' \
                         --fail \
                         --location \

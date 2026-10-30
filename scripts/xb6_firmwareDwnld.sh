@@ -392,8 +392,23 @@ useDirectRequest()
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_ARGS="--interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
+            if ! echo "$xconf_url" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "Invalid xconf_url: $xconf_url" | tee -a "$XCONF_LOG_FILE"
+                return 1
+            fi
 	    FQDN=`echo "$xconf_url" | awk -F/ '{print $3}'`
+            CURL_ARGS=(
+                --interface "$interface"
+                $addr_type
+                -w "%{http_code}\n"
+                --tlsv1.2
+                -d "$JSONSTR"
+                -o "$FWDL_JSON"
+                "$xconf_url"
+                $CERT_STATUS
+                --connect-timeout 30
+                -m 30
+            )
             if [ -f /lib/rdk/stateRedRecoveryUtils.sh ];then
                 isInStateRed
                 stateRed=$?
@@ -403,13 +418,12 @@ useDirectRequest()
             if [ "0x$stateRed" == "0x1" ]; then
                 stateRedlog "XCONF SCRIPT : stateRedRecovery - attempting MTLS connection to XCONF server"
                 CERT="$(getStateRedCreds)"
-                CURL_CMD="GetConfigFile /tmp/stateredxpki stdout | sed -e 's/^/--pass /' | $CURL_PATH/curl $CERT $CURL_ARGS"
-                result=` eval $CURL_CMD > $HTTP_CODE`
+                result=$(GetConfigFile /tmp/stateredxpki stdout | sed -e 's/^/--pass /' | "$CURL_PATH/curl" $CERT $CURL_ARGS > "$HTTP_CODE")
                 ret=$?
                 echo_t "CURL_CMD:`echo "$CURL_CMD" | cut -d "|" -f3`"
                 echo_t "CURL_CMD:`echo "$CURL_CMD" | cut -d "|" -f3`" >> $XCONF_LOG_FILE
             else
-                ret=` exec_curl_mtls "$CURL_ARGS" "CDL" "$FQDN"`
+                ret=$(exec_curl_mtls "$CURL_ARGS" "CDL" "$FQDN")
             fi
             HTTP_RESPONSE_CODE=$(awk '{print $1}' $HTTP_CODE )
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${XCONF_LOG_PATH}/TlsVerify.txt
@@ -450,7 +464,7 @@ useCodebigRequest()
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`"  >> $XCONF_LOG_FILE
-            HTTP_CODE=`result= eval $CURL_CMD`
+            HTTP_CODE=$("$CURL_PATH/curl" --interface "$interface" $addr_type -w "%{http_code}\n" --tlsv1.2 -o "$FWDL_JSON" "$CB_SIGNED_REQUEST" $CERT_STATUS --connect-timeout 30 -m 30);
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${XCONF_LOG_PATH}/TlsVerify.txt
@@ -629,8 +643,8 @@ getFirmwareUpgDetail()
             MAC=`cat /sys/class/net/$wan_interface/address | tr '[a-f]' '[A-F]' `
 	fi
         date=`date`
-        partnerId=$(getPartnerId)
-        accountId=$(getAccountId)
+        accountId=$(getAccountId | tr -cd 'A-Za-z0-9._-')
+        partnerId=$(getPartnerId | tr -cd 'A-Za-z0-9._-')
         unitActivationStatus=`syscfg get unit_activated`
 
         if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
@@ -1501,13 +1515,13 @@ do
         #/etc/whitelist.sh "$firmwareLocation"
 
         # Strict validation of firmwareLocation
-        if ! echo "$firmwareLocation" | grep -Eq '^https://[A-Za-z0-9:/._-]+$'; then
+        if ! echo "$firmwareLocation" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
             echo_t "XCONF SCRIPT : Invalid firmwareLocation: " >> "$XCONF_LOG_FILE"
             rm -f $DOWNLOAD_INPROGRESS
             exit 1
         fi
         # Strict validation of firmwareFilename
-        if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || ["$firmwareFilename" = "."] || ["$firmwareFilename" = ".."]; then
+        if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
             echo_t "XCONF SCRIPT : Invalid firmwareFilename: " >> "$XCONF_LOG_FILE"
             rm -f $DOWNLOAD_INPROGRESS
             exit 1
@@ -1525,7 +1539,7 @@ do
         fi
 
         if [ "$curr_conn_type" = "direct" ]; then
-           if ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9:/._-]+$'; then
+           if ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
                 echo_t "XCONF SCRIPT : Invalid firmware_URL" >> "$XCONF_LOG_FILE"
                 set_url_stat=1
                 return 1
@@ -1546,7 +1560,7 @@ do
                   echo_t "XCONF SCRIPT stateRedRecovery : $cert" >> $XCONF_LOG_FILE
                   echo_t "XCONF SCRIPT stateRedRecovery : $firmwareLocation/$firmwareFilename" >> $XCONF_LOG_FILE
                   echo_t "XCONF SCRIPT stateRedRecovery : $firmwareFilename " >> $XCONF_LOG_FILE
-                  XconfHttpDl set_http_url "$cert" "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url
+                  XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$cert"
                   set_url_stat=$?
               fi
           elif [ "$direct_CDN" = "true" ] && [ $CDL_SERVER_OVERRIDE != 1 ];then
@@ -1564,7 +1578,7 @@ do
               if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ] || [ "x$BOX_TYPE" = "xXER2" ]; then
                   XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$CERT"
               else
-                  XconfHttpDl set_http_url "$CERT" "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url
+                  XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$cert"
               fi
               set_url_stat=$?
               echo_t "XCONF SCRIPT : URL with certificate --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
@@ -1577,19 +1591,19 @@ do
               set_url_stat=$?
 	  fi
         else
-          if ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9:/._-]+$'; then
+          if ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
               echo_t "XCONF SCRIPT : Invalid firmware_URL" >> "$XCONF_LOG_FILE"
               set_url_stat=1
               return 1
           fi
-          if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || ["$firmwareFilename" = "."] || ["$firmwareFilename" = ".."]; then
+          if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
               echo_t "XCONF SCRIPT : Invalid firmwareFilename: " >> "$XCONF_LOG_FILE"
               set_url_stat=1
           return 1
           fi
           # Set the url and filename
           echo_t "XCONF SCRIPT : Setting validation firmware download URL" >> "$XCONF_LOG_FILE"
-          XconfHttpDl set_http_url "$firmware_URL" "$firmwareFilename" --oauth-header "$authorizationHeader" complete_url
+          XconfHttpDl set_http_url "$firmware_URL" "$firmwareFilename" complete_url
           set_url_stat=$?
         fi
         
