@@ -83,12 +83,16 @@ UseCodebig=0
 
 validateFirmwareLocation()
 {
+    [ "$(printf '%s\n' "$1" | wc -l)" -eq 1 ] || return 1
     printf '%s\n' "$1" | grep -Eq '^https://[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'
 }
 
 validateFirmwareFilename()
 {
-    printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._-]+$'
+    case "$1" in
+        ''|*[!A-Za-z0-9._-]*) return 1 ;;
+        *) return 0 ;;
+    esac
 }
 
 CURL_SSR_PARAM=""
