@@ -106,12 +106,18 @@ UseCodebig=0
 
 validateFirmwareLocation()
 {
-    printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._/:%-]+$'
+    case "$1" in
+        ''|*[!A-Za-z0-9._/:%-]*) return 1 ;;
+        *) return 0 ;;
+    esac
 }
 
 validateFirmwareFilename()
 {
-    printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9._/:%-]+$'
+    case "$1" in
+        ''|*[!A-Za-z0-9._/:%-]*) return 1 ;;
+        *) return 0 ;;
+    esac
 }
 
 # NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
