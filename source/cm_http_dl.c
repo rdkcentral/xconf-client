@@ -563,7 +563,7 @@ int main(int argc,char *argv[])
 
     LONG value = 0;
     int ret_code = 0;
-    int http_status,reboot_status;
+    int http_status = 0,reboot_status;
     int reset_device;
     errno_t rc = -1;
     int ind = -1;
