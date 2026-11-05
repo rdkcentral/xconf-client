@@ -81,6 +81,22 @@ conn_str="Direct"
 CodebigAvailable=0
 UseCodebig=0
 
+validateFirmwareLocation()
+{
+     [ "$(printf '%s\n' "$1" | wc -l)" -eq 1 ] || return 1
+     printf '%s\n' "$1" | \
+         grep -Eq '^https://[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._/%-]+)*$' &&
+         ! printf '%s\n' "$1" | grep -Eq '(^|/)\.\.(/|$)'
+}
+
+validateFirmwareFilename()
+{
+     case "$1" in
+         ''|*[!A-Za-z0-9._-]*) return 1 ;;
+         *) return 0 ;;
+     esac
+}
+
 CURL_SSR_PARAM=""
 
 FW_START="/nvram/.FirmwareUpgradeStartTime"
@@ -255,9 +271,8 @@ do_Codebig_signing()
             domain_name=`echo $xconf_url | cut -d / -f3`
             getRequestType $domain_name
             request_type=$?
-            SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
-            eval $SIGN_CMD > $SIGN_FILE
-            CB_SIGNED_REQUEST=`cat $SIGN_FILE`
+            configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
+	    CB_SIGNED_REQUEST=$(cat "$SIGN_FILE")
             rm -f $SIGN_FILE
       else
             request_type=1
@@ -265,13 +280,10 @@ do_Codebig_signing()
             if [ "$domainName" == "$DAC15_DOMAIN" ]; then
                 request_type=14
             fi
-            SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
-            echo $SIGN_CMD >>$XCONF_LOG_FILE
             echo -e "\n"
-            eval $SIGN_CMD > $SIGN_FILE
-            cbSignedimageHTTPURL=`cat $SIGN_FILE`
+            configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
+	    cbSignedimageHTTPURL=$(cat "$SIGN_FILE")
             rm -f $SIGN_FILE
-#            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
             cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL | sed 's|stb_cdl%2F|stb_cdl/|g'`
             serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|[?&]oauth_consumer_key.*||g"`
             authorizationHeader=`echo $cbSignedimageHTTPURL | sed -e "s|&|\", |g" -e "s|=|=\"|g" -e "s|.*oauth_consumer_key|oauth_consumer_key|g"`
@@ -286,10 +298,7 @@ useDirectRequest()
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
-            echo_t "CURL_CMD:$CURL_CMD"
-            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
-            HTTP_CODE=`result= eval $CURL_CMD`
+            HTTP_CODE=$("$CURL_PATH/curl" --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -d "$JSONSTR" -o "$FWDL_JSON" "$xconf_url" $CERT_STATUS --connect-timeout 30 -m 30)
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
@@ -433,6 +442,20 @@ getFirmwareUpgDetail()
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
         partnerId=$(getPartnerId)
         accountId=$(getAccountId)
+        case "$partnerId" in
+            *[!A-Za-z0-9._-]*)
+                echo_t "XCONF SCRIPT : Invalid partnerId '$partnerId' received" >> "$XCONF_LOG_FILE"
+                return 1
+                ;;
+        esac
+
+        case "$accountId" in
+            *[!A-Za-z0-9._-]*)
+                echo_t "XCONF SCRIPT : Invalid accountId '$accountId' received" >> "$XCONF_LOG_FILE"
+                return 1
+                ;;
+        esac
+
         unitActivationStatus=`syscfg get unit_activated`
 
         if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
@@ -559,6 +582,15 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
                     serverUrl=""
                     authorizationHeader=""
+                    if ! validateFirmwareLocation "$firmwareLocation"; then
+                        echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
+                        return 1
+                    fi
+
+                    if ! validateFirmwareFilename "$firmwareFilename"; then
+                        echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
+                        return 1
+                    fi
                     imageHTTPURL="$firmwareLocation/$firmwareFilename"
                     domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
                     imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
@@ -743,6 +775,16 @@ fetchFirmwareDetail()
     if [ "$curr_conn_type" != "direct" ]; then
         serverUrl=""
         authorizationHeader=""
+	if ! validateFirmwareLocation "$firmwareLocation"; then
+            echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
+            return 1
+        fi
+
+        if ! validateFirmwareFilename "$firmwareFilename"; then
+            echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
+            return 1
+	fi
+
         imageHTTPURL="$firmwareLocation/$firmwareFilename"
         domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
         imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
@@ -1199,18 +1241,32 @@ do
        echo_t "XCONF SCRIPT : HTTP SSR set for $curr_conn_type download" >> $XCONF_LOG_FILE
 
        if [ "$curr_conn_type" = "direct" ]; then
-          # Set the url and filename
+	   # Set the url and filename
           echo_t "XCONF SCRIPT : URL --- --tlsv1.2 $addr_type -fgL $firmwareLocation/$firmwareFilename and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-#          CURL_CMD_SSR="curl --connect-timeout 30 --tlsv1.2 --interface $interface $addr_type -w '%{http_code}\n' -fgLo $TMP_PATH/$firmwareFilename '$firmwareLocation/$firmwareFilename'"
-          $BIN_PATH/XconfHttpDl set_http_url "$addr_type -fgL '$firmwareLocation/$firmwareFilename'" "$firmwareFilename" complete_url
-          set_url_stat=$?
+          if ! validateFirmwareLocation "$firmwareLocation"; then
+              echo_t "Invalid firmwareLocation: $firmwareLocation" >> "$XCONF_LOG_FILE"
+              set_url_stat=1
+          elif ! validateFirmwareFilename "$firmwareFilename"; then
+              echo_t "Invalid firmwareFilename: $firmwareFilename" >> "$XCONF_LOG_FILE"
+              set_url_stat=1
+          else        
+              $BIN_PATH/XconfHttpDl set_http_url "$addr_type -fgL '$firmwareLocation/$firmwareFilename'" "$firmwareFilename" complete_url
+              set_url_stat=$?
+          fi
        else
           # Set the url and filename
           echo_t "XCONF SCRIPT : URL --- `echo "$addr_type $CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename"
           echo_t "XCONF SCRIPT : URL --- `echo "$addr_type $CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-#          echo_t "Codebig CURL_CMD :`echo  "$CURL_CMD_SSR" |  sed -ne 's#'"$authorizationHeader"'#<Hidden authorization-header>#p'`"
-          $BIN_PATH/XconfHttpDl set_http_url "$addr_type $CURL_SSR_PARAM" "$firmwareFilename" complete_url
-          set_url_stat=$?
+          if ! validateFirmwareLocation "$serverUrl"; then
+              echo_t "Invalid serverUrl" >> "$XCONF_LOG_FILE"
+              set_url_stat=1
+          elif ! validateFirmwareFilename "$firmwareFilename"; then
+              echo_t "Invalid firmwareFilename" >> "$XCONF_LOG_FILE"
+              set_url_stat=1
+          else
+              $BIN_PATH/XconfHttpDl set_http_url "$addr_type $CURL_SSR_PARAM" "$firmwareFilename" complete_url
+              set_url_stat=$?
+          fi
        fi
         
         # If the URL was correctly set, initiate the download

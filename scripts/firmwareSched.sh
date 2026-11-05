@@ -303,6 +303,27 @@ convertLocalCronToUTC()
         return 1
     fi
 }
+
+validateCronPattern()
+{
+    pattern="$1"
+
+    # reject newlines/control characters
+    printf '%s' "$pattern" | grep -q '[[:cntrl:]]' && return 1
+
+    # allow only cron characters
+    case "$pattern" in
+        *[!0-9\ \*,/-]*)
+            return 1
+            ;;
+    esac
+
+    # exactly five fields
+    [ "$(echo "$pattern" | awk '{print NF}')" -eq 5 ] || return 1
+
+    return 0
+}
+
 ##############################################################
 #                                                            #
 #                          Main App                          #
@@ -406,6 +427,11 @@ fi
                 t2ValNotify "FW_DL_TIME_MODE_split" "TimezoneUnsupported"
            fi
 
+           cronPattern=$(sed -n 's/^urn:settings:CheckSchedule:cron=//p' "$FORMATTED_TMP_DCM_RESPONSE" | head -n1)
+           if ! validateCronPattern "$cronPattern"; then
+               echo_t "XCONF SCRIPT: Invalid cron pattern received"
+               cronPattern=""
+           fi      
            if [ "$cronPattern" != "" ]
            then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
