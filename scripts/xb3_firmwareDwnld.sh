@@ -272,11 +272,7 @@ do_Codebig_signing()
             getRequestType $domain_name
             request_type=$?
             configparamgen "$request_type" "$JSONSTR" > "$SIGN_FILE"
-<<<<<<< HEAD
 	    CB_SIGNED_REQUEST=$(cat "$SIGN_FILE")
-=======
-	    CB_SIGNED_REQUEST=`cat $SIGN_FILE`
->>>>>>> e61957b (Fix Review)
             rm -f $SIGN_FILE
       else
             request_type=1
@@ -286,11 +282,7 @@ do_Codebig_signing()
             fi
             echo -e "\n"
             configparamgen "$request_type" "$imageHTTPURL" > "$SIGN_FILE"
-<<<<<<< HEAD
             cbSignedimageHTTPURL=$(cat "$SIGN_FILE")
-=======
-            cbSignedimageHTTPURL=`cat $SIGN_FILE`
->>>>>>> e61957b (Fix Review)
             rm -f $SIGN_FILE
             cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL | sed 's|stb_cdl%2F|stb_cdl/|g'`
             serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|[?&]oauth_consumer_key.*||g"`
@@ -443,27 +435,8 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-<<<<<<< HEAD
-        partnerId=$(getPartnerId)
-        accountId=$(getAccountId)
-        case "$partnerId" in
-            *[!A-Za-z0-9._-]*)
-                echo_t "XCONF SCRIPT : Invalid partnerId '$partnerId' received" >> "$XCONF_LOG_FILE"
-                return 1
-                ;;
-        esac
-
-        case "$accountId" in
-            *[!A-Za-z0-9._-]*)
-                echo_t "XCONF SCRIPT : Invalid accountId '$accountId' received" >> "$XCONF_LOG_FILE"
-                return 1
-                ;;
-        esac
-
-=======
         partnerId=$(getPartnerId | tr -cd 'A-Za-z0-9._-')
         accountId=$(getAccountId | tr -cd 'A-Za-z0-9._-')
->>>>>>> e61957b (Fix Review)
         unitActivationStatus=`syscfg get unit_activated`
 
         if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
