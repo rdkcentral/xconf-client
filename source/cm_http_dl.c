@@ -114,6 +114,11 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename) {
         char pGetFilename[CM_FILENAME_LEN] = {'0'};
         errno_t rc = -1;
 
+        if(pfilename ==  NULL || strlen(pfilename) >= CM_FILENAME_LEN)
+        {
+            printf("\nXCONF BIN : Invalid filename or filename too long\n");
+	    return ret_stat;
+	}
         /*Set the HTTP download URL*/
 #ifdef FEATURE_FWUPGRADE_MANAGER
         ret_stat = fwupgrade_hal_set_download_url(pHttpUrl, pfilename);
@@ -593,7 +598,47 @@ int main(int argc,char *argv[])
              */
 
              if (((argv[2]) != NULL) && ((argv[3]) != NULL)) {
+                  size_t i;
+                  int valid_url = 1;
+                  int valid_filename = 1;
 
+                  /* Require HTTPS and allow only approved URL characters. */
+                  if (strncmp(argv[2], "https://", 8) != 0) {
+                      valid_url = 0;
+                  }
+                  for (i = 0; argv[2][i] != '\0'; i++) {
+                      unsigned char c = (unsigned char)argv[2][i];
+                      if (!((c >= 'A' && c <= 'Z') ||
+                          (c >= 'a' && c <= 'z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '.' || c == '_' || c == '/' ||
+                          c == ':' || c == '%' || c == '-')) {
+                          valid_url = 0;
+                          break;
+                      }
+                  }
+
+                  for (i = 0; argv[3][i] != '\0'; i++) {
+                      unsigned char c = (unsigned char)argv[3][i];
+                      if (!((c >= 'A' && c <= 'Z') ||
+                          (c >= 'a' && c <= 'z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '.' || c == '_' || c == '-')) {
+                          valid_filename = 0;
+                          break;
+                      }
+                  }
+                  if (argv[3][0] == '-' ||
+                      strcmp(argv[3], ".") == 0 ||
+                      strcmp(argv[3], "..") == 0) {
+                      valid_filename = 0;
+                  }
+
+                  if (!valid_url || !valid_filename) {
+                      printf("XCONF BIN: Invalid URL or filename.\n");
+                      ret_code = 1;
+		      return ret_code;
+                  }
                   pfilename = argv[3];
 
                   if ((argv[4]) != NULL) {
@@ -605,7 +650,7 @@ int main(int argc,char *argv[])
                           ERR_CHK(rc);
                           ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                        } else if((strstr(argv[4], "--cert")) && ((argv[2]) != NULL)) {
-                            rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "%s '%s/%s'", argv[4], argv[2], pfilename);
+                            rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "%s %s/%s", argv[4], argv[2], pfilename);
                             ERR_CHK(rc);
                             ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                        } else {
