@@ -256,7 +256,20 @@ checkFirmwareUpgCriteria()
 	currentVersion=`getCurrentFw`
 	current_FW_Version=$currentVersion
 	update_FW_Version=$firmwareVersion
-	#Comcast signed firmware images are represented in lower case and vendor signed images are represented in upper case. 
+        case "$current_FW_Version" in
+            ''|*[!A-Za-z0-9._-]*)
+                echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+                rm -f /tmp/.downloadingfw
+                exit 1
+                ;;
+        esac
+        case "$update_FW_Version" in
+            ''|*[!A-Za-z0-9._-]*)
+                echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+                rm -f /tmp/.downloadingfw
+                exit 1
+                ;;
+	esac
         #In order to avoid confusion in string comparison, converting both currentVersion and firmwareVersion to lower case.
 	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
         firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
@@ -349,8 +362,7 @@ do_Codebig_signing()
             domain_name=`echo $xconf_url | cut -d / -f3`
             getRequestType $domain_name
             request_type=$?
-            SIGN_CMD="GetServiceUrl $request_type \"$JSONSTR\""
-            eval $SIGN_CMD > $SIGN_FILE
+            GetServiceUrl "$request_type" "$JSONSTR" > "$SIGN_FILE"
             CB_SIGNED_REQUEST=`cat $SIGN_FILE`
             rm -f $SIGN_FILE
       else
@@ -358,16 +370,32 @@ do_Codebig_signing()
             domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
             if [ "$domainName" == "$DAC15_DOMAIN" ]; then
                 request_type=14
-            fi      
-            SIGN_CMD="GetServiceUrl $request_type \"$imageHTTPURL\""
-            echo $SIGN_CMD >>$XCONF_LOG_FILE
+            fi
+	    if ! echo "$firmwareLocation" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "Invalid firmwareLocation: $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+		rm -f /tmp/.downloadingfw
+		exit 1
+            fi
+            if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+                echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+		exit 1
+            fi
+            GetServiceUrl "$request_type" "$imageHTTPURL" > $SIGN_FILE
+            echo "GetServiceUrl $request_type" >>$XCONF_LOG_FILE
             echo -e "\n"
-            eval $SIGN_CMD > $SIGN_FILE
+            accountId=$(getAccountId | tr -cd 'A-Za-z0-9._-')
+            partnerId=$(getPartnerId | tr -cd 'A-Za-z0-9._-')
             cbSignedimageHTTPURL=`cat $SIGN_FILE`
             rm -f $SIGN_FILE
 #            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
             cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL | sed 's|stb_cdl%2F|stb_cdl/|g'`
             serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|[?&]oauth_consumer_key.*||g"`
+	    if ! echo "$serverUrl" | grep -Eq '^https://[A-Za-z0-9:/._-]+$'; then
+                echo "Invalid serverUrl: $serverUrl" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+		exit 1
+            fi
             authorizationHeader=`echo $cbSignedimageHTTPURL | sed -e "s|&|\", |g" -e "s|=|=\"|g" -e "s|.*oauth_consumer_key|oauth_consumer_key|g"`
             authorizationHeader="Authorization: OAuth realm=\"\", $authorizationHeader\""
             CURL_SSR_PARAM="-H '$authorizationHeader' '$serverUrl'"
@@ -380,9 +408,15 @@ useDirectRequest()
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
+	    if ! echo "$xconf_url" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "Invalid xconf_url: $xconf_url" | tee -a "$XCONF_LOG_FILE"
+		rm -f /tmp/.downloadingfw
+		exit 1
+            fi
             CURL_ARGS="--interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
 	    FQDN=`echo "$xconf_url" | awk -F/ '{print $3}'`
-            if [ -f /lib/rdk/stateRedRecoveryUtils.sh ];then
+            
+	    if [ -f /lib/rdk/stateRedRecoveryUtils.sh ];then
                 isInStateRed
                 stateRed=$?
             else
@@ -392,7 +426,7 @@ useDirectRequest()
                 stateRedlog "XCONF SCRIPT : stateRedRecovery - attempting MTLS connection to XCONF server"
                 CERT="$(getStateRedCreds)"
                 CURL_CMD="GetConfigFile /tmp/stateredxpki stdout | sed -e 's/^/--pass /' | $CURL_PATH/curl $CERT $CURL_ARGS"
-                result=` eval $CURL_CMD > $HTTP_CODE`
+                result=$(GetConfigFile /tmp/stateredxpki stdout | sed -e 's/^/--pass /' | "$CURL_PATH/curl" $CERT --interface "$interface" $addr_type -w '%{http_code}\n' --tlsv1.2 -d "$JSONSTR" -o "$FWDL_JSON" "$xconf_url" $CERT_STATUS --connect-timeout 30 -m 30 > "$HTTP_CODE")
                 ret=$?
                 echo_t "CURL_CMD:`echo "$CURL_CMD" | cut -d "|" -f3`"
                 echo_t "CURL_CMD:`echo "$CURL_CMD" | cut -d "|" -f3`" >> $XCONF_LOG_FILE
@@ -438,7 +472,7 @@ useCodebigRequest()
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`"  >> $XCONF_LOG_FILE
-            HTTP_CODE=`result= eval $CURL_CMD`
+            HTTP_CODE=$("$CURL_PATH/curl" --interface "$interface" $addr_type -w "%{http_code}\n" --tlsv1.2 -o "$FWDL_JSON" "$CB_SIGNED_REQUEST" $CERT_STATUS --connect-timeout 30 -m 30);
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${XCONF_LOG_PATH}/TlsVerify.txt
@@ -617,8 +651,8 @@ getFirmwareUpgDetail()
             MAC=`cat /sys/class/net/$wan_interface/address | tr '[a-f]' '[A-F]' `
 	fi
         date=`date`
-        partnerId=$(getPartnerId)
-        accountId=$(getAccountId)
+        partnerId=$(getPartnerId | tr -cd 'A-Za-z0-9._-')
+        accountId=$(getAccountId | tr -cd 'A-Za-z0-9._-')
         unitActivationStatus=`syscfg get unit_activated`
 
         if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
@@ -647,7 +681,7 @@ getFirmwareUpgDetail()
             stateRed=0
         fi
         if [ "0x$stateRed" == "0x1" ]; then
-            JSONSTR=$JSONSTR'&recovery="true"'
+            JSONSTR=$JSONSTR'&recovery=true'
         fi
 
         if [ "$UseCodebig" = "1" ]; then
@@ -1393,12 +1427,36 @@ if [ "$factoryResetImmediately" == "true" ];then
         if [ "$direct_CDN" = "true" ] && [ $CDL_SERVER_OVERRIDE != 1 ] && [ "x$CodeBigEnable" != "xtrue" ];then
             echo_t "XCONF SCRIPT : firmware_URL: $firmware_URL firmwareFilename : $firmwareFilename" >> $XCONF_LOG_FILE
             echo_t "XCONF SCRIPT : CDL: firmwareDownloadServer: cdn_direct" >> $XCONF_LOG_FILE
-            XconfHttpDl upgrade_factoryreset "$firmware_URL" "$firmwareFilename" >> $XCONF_LOG_FILE
+            # Strict validation of firmware_URL
+            if ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "Invalid firmware_URL: $(printf '%s' "$firmware_URL" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+                exit 1
+            fi
+            # Strict validation of firmwareFilename
+            if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
+                echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+                exit 1
+            fi
+	    XconfHttpDl upgrade_factoryreset "$firmware_URL" "$firmwareFilename" >> $XCONF_LOG_FILE
             reboot_device=$?
         else
             echo_t "XCONF SCRIPT : firmwareLocation: $firmwareLocation firmwareFilename : $firmwareFilename" >> $XCONF_LOG_FILE
             echo_t "XCONF SCRIPT : CDL: firmwareDownloadServer: ssr_indirect"
-            XconfHttpDl upgrade_factoryreset "$firmwareLocation" "$firmwareFilename" >> $XCONF_LOG_FILE
+	    # Strict validation of firmwareLocation
+            if ! echo "$firmwareLocation" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "Invalid firmwareLocation: $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+                exit 1
+            fi
+            # Strict validation of firmwareFilename
+            if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
+                echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                rm -f /tmp/.downloadingfw
+                exit 1
+            fi
+	    XconfHttpDl upgrade_factoryreset "$firmwareLocation" "$firmwareFilename" >> $XCONF_LOG_FILE
             reboot_device=$?
         fi
         if [ $reboot_device -eq 0 ];then
@@ -1485,9 +1543,15 @@ do
         # Whitelist the returned firmware location
         #echo_t "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
         #echo_t "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
-        echo "$firmwareLocation" > /tmp/xconfdownloadurl
         #/etc/whitelist.sh "$firmwareLocation"
 
+        # Strict validation of firmwareFilename
+        if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
+            echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+            rm -f /tmp/.downloadingfw
+            exit 1
+        fi
+	echo "$firmwareLocation" > /tmp/xconfdownloadurl
         if [ "$direct_CDN" = "true" ];then
             echo_t "XCONF SCRIPT : HTTP CDN_Direct set for $curr_conn_type download"
             echo_t "XCONF SCRIPT : HTTP CDN_Direct set for $curr_conn_type download" >> $XCONF_LOG_FILE
@@ -1501,7 +1565,13 @@ do
         fi
 
         if [ "$curr_conn_type" = "direct" ]; then
-          # Set the url and filename
+            if [ -n "$firmware_URL" ] && ! echo "$firmware_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
+                echo_t "XCONF SCRIPT : Invalid firmware_URL" >> "$XCONF_LOG_FILE"
+                set_url_stat=1
+                rm -f /tmp/.downloadingfw
+                exit 1
+            fi
+	    # Set the url and filename
           if [ "$triggeredFrom" = "stateRedRecovery" ];then
               stateRedlog "XCONF SCRIPT : stateRedRecovery - setting mtls state red credentials"
               cert="$(getStateRedCreds)"
@@ -1517,7 +1587,7 @@ do
                   echo_t "XCONF SCRIPT stateRedRecovery : $cert" >> $XCONF_LOG_FILE
                   echo_t "XCONF SCRIPT stateRedRecovery : $firmwareLocation/$firmwareFilename" >> $XCONF_LOG_FILE
                   echo_t "XCONF SCRIPT stateRedRecovery : $firmwareFilename " >> $XCONF_LOG_FILE
-                  XconfHttpDl set_http_url " $cert $firmwareLocation/$firmwareFilename " "$firmwareFilename" complete_url
+                  XconfHttpDl set_http_url "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url --cert "$cert"
                   set_url_stat=$?
               fi
           elif [ "$direct_CDN" = "true" ] && [ $CDL_SERVER_OVERRIDE != 1 ];then
@@ -1535,7 +1605,7 @@ do
               if [ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ] || [ "$BOX_TYPE" = "SCER11BEL" ] || [ "x$BOX_TYPE" = "xSCXF11BFL" ] || [ "x$BOX_TYPE" = "xXER2" ]; then
                   XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$CERT"
               else
-                  XconfHttpDl set_http_url " $CERT $firmwareLocation/$firmwareFilename " "$firmwareFilename" complete_url
+                  XconfHttpDl set_http_url "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url --cert "$CERT"
               fi
               set_url_stat=$?
               echo_t "XCONF SCRIPT : URL with certificate --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
@@ -1548,10 +1618,16 @@ do
               set_url_stat=$?
 	  fi
         else
+          if ! echo "$firmwareFilename" | grep -Eq '^[A-Za-z0-9._-]+$' || [ "$firmwareFilename" = "." ] || [ "$firmwareFilename" = ".." ]; then
+              echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+              set_url_stat=1
+              rm -f /tmp/.downloadingfw
+              exit 1
+          fi
           # Set the url and filename
           echo_t "XCONF SCRIPT : URL --- `echo "$CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename"
           echo_t "XCONF SCRIPT : URL --- `echo "$CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-          XconfHttpDl set_http_url "$CURL_SSR_PARAM" "$firmwareFilename" complete_url
+          XconfHttpDl set_http_url "$serverUrl" "$firmwareFilename" complete_url --header "$authorizationHeader"
           set_url_stat=$?
         fi
         
@@ -1564,14 +1640,14 @@ do
 
             if [ "$rebootImmediately" == "false" ] && [ "$rebootNow" == "false" ];then
 
-				echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
-				echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
-			# TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
-			if  [ $is_already_flash_led_disable -eq 0 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] ;
-			then
-				echo_t "XCONF SCRIPT	: ### Disabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
-				XconfHttpDl http_flash_led $http_flash_led_disable  >> $XCONF_LOG_FILE
-				 is_already_flash_led_disable=1
+                echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
+                echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
+            # TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
+            if  [ $is_already_flash_led_disable -eq 0 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] ;
+            then
+                echo_t "XCONF SCRIPT	: ### Disabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
+                XconfHttpDl http_flash_led $http_flash_led_disable  >> $XCONF_LOG_FILE
+                is_already_flash_led_disable=1
 			fi    
             else
                 if [ -f /tmp/.dwd_led_blink_disable ]
@@ -1581,41 +1657,41 @@ do
                 fi
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
-			# TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
-			if  [ $is_already_flash_led_disable -eq 1 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ]  ;
-			then
-				echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
-				XconfHttpDl http_flash_led $http_flash_led_enable  >> $XCONF_LOG_FILE
-				 is_already_flash_led_disable=0
- 			fi
+            # TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
+            if  [ $is_already_flash_led_disable -eq 1 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ]  ;
+            then
+                echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
+		XconfHttpDl http_flash_led $http_flash_led_enable  >> $XCONF_LOG_FILE
+		 is_already_flash_led_disable=0
             fi
-			#echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error"
-			#echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
+            fi
+            #echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error"
+            #echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
             #sleep 60
-			#Trigger FirmwareDownloadStartedNotification before commencement of firmware download
+            #Trigger FirmwareDownloadStartedNotification before commencement of firmware download
 
-			current_time=`date +%s`
-			echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
-			if [ "$rebootImmediately" == "true" ] || [ "$rebootNow" == "true" ];then
-				reboot_flag="forced"
-			else
-				reboot_flag="deferred"
-			fi
-			FW_DWLD_NOTIFICATION_STRING="$current_time,$reboot_flag,$current_FW_Version,$update_FW_Version"
-			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification parameters are $FW_DWLD_NOTIFICATION_STRING" >> $XCONF_LOG_FILE
-			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $FW_DWLD_NOTIFICATION_STRING
-			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
+            current_time=`date +%s`
+            echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
+            if [ "$rebootImmediately" == "true" ] || [ "$rebootNow" == "true" ];then
+                reboot_flag="forced"
+            else
+                reboot_flag="deferred"
+            fi
+            FW_DWLD_NOTIFICATION_STRING="$current_time,$reboot_flag,$current_FW_Version,$update_FW_Version"
+            echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification parameters are $FW_DWLD_NOTIFICATION_STRING" >> $XCONF_LOG_FILE
+            dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string "$FW_DWLD_NOTIFICATION_STRING"
+            echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
 
-	        # Start the image download
-		echo_t "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
-	        XconfHttpDl http_download >> $XCONF_LOG_FILE
-	        http_dl_stat=$?
-		echo -e "\n"
-		echo_t "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
-	        echo_t "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
-	        echo_t "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
+            # Start the image download
+            echo_t "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
+            XconfHttpDl http_download >> $XCONF_LOG_FILE
+            http_dl_stat=$?
+            echo -e "\n"
+            echo_t "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
+            echo_t "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
+            echo_t "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
 			
-	        # If the http_dl_stat is 0, the download was succesful,          
+            # If the http_dl_stat is 0, the download was succesful, 
             # Indicate a succesful download and continue to the reboot manager
 		
             if [ $http_dl_stat -eq 0 ];then
