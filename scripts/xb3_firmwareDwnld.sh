@@ -192,14 +192,14 @@ checkFirmwareUpgCriteria()
     update_FW_Version=$firmwareVersion
     case "$current_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid current_FW_Version" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
     esac
     case "$update_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid update_FW_Version" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
@@ -1253,7 +1253,7 @@ do
               echo_t "Invalid firmwareLocation: $firmwareLocation" >> "$XCONF_LOG_FILE"
               set_url_stat=1
           elif ! validateFirmwareFilename "$firmwareFilename"; then
-              echo_t "Invalid firmwareFilename: $firmwareFilename" >> "$XCONF_LOG_FILE"
+              echo_t "Invalid firmwareFilename" >> "$XCONF_LOG_FILE"
               set_url_stat=1
           else        
               $BIN_PATH/XconfHttpDl set_http_url "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url $addr_type -fgL
