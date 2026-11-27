@@ -198,14 +198,14 @@ checkFirmwareUpgCriteria()
     update_FW_Version=$firmwareVersion
     case "$current_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid current_FW_Version" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
     esac
     case "$update_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid update_FW_Version" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
@@ -336,7 +336,7 @@ do_Codebig_signing()
                 grep -Eq '^[A-Za-z0-9._-]+$' ||
                 [ "$firmwareFilename" = "." ] ||
                 [ "$firmwareFilename" = ".." ]; then
-                echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
+                echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
                 rm -f /tmp/.downloadingfw
 		return 1
             fi
@@ -1482,7 +1482,7 @@ do
         # Validate firmware location.
         if ! printf '%s\n' "$firmwareLocation" |
             grep -Eq '^https://[A-Za-z0-9./_-]+$'; then
-            echo_t "Invalid firmwareLocation: $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
+            echo_t "Invalid firmwareLocation" >> $XCONF_LOG_FILE
             rm -f /tmp/.downloadingfw
             exit 1
         fi
@@ -1493,7 +1493,7 @@ do
             [ "$firmwareFilename" = "." ] ||
             [ "$firmwareFilename" = ".." ] ||
             [ "${firmwareFilename#-}" != "$firmwareFilename" ]; then
-            echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE 
+            echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE 
             rm -f /tmp/.downloadingfw
 	    exit 1
 	fi
@@ -1585,7 +1585,7 @@ do
                     then
                         rm -f -- "$TMP_PATH/$firmwareFilename"
                     else
-                        echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
+                        echo_t "Invalid firmwareFilename" >> $XCONF_LOG_FILE
                     fi
                     http_dl_stat=1
                     if [ "x$curl_code" == "x23" ] || [ "x$curl_code" == "x25" ] || [ "x$curl_code" == "x26" ]; then
