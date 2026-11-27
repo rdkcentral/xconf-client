@@ -244,14 +244,14 @@ checkFirmwareUpgCriteria()
     update_FW_Version=$firmwareVersion
     case "$current_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
     esac
     case "$update_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
@@ -747,12 +747,12 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" 
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
                     if ! validateFirmwareLocation "$firmwareLocation"; then
-                        echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                        echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                         return 1
                     fi
  
                     if ! validateFirmwareFilename "$firmwareFilename"; then
-                        echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                        echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                         return 1
                     fi
 		    serverUrl=""
@@ -946,12 +946,12 @@ fetchFirmwareDetail()
     if [ "$curr_conn_type" != "direct" ]; then
 
         if ! validateFirmwareLocation "$firmwareLocation"; then
-            echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+            echo_t "XCONF SCRIPT : Invalid firmwareLocation received: $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
             return 1
         fi
 
         if ! validateFirmwareFilename "$firmwareFilename"; then
-            echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+            echo_t "XCONF SCRIPT : Invalid firmwareFilename received: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
             return 1
         fi
 
@@ -1483,10 +1483,10 @@ do
                  echo_t "XCONF SCRIPT stateRedRecovery : $firmware_URL/$firmwareFilename" >> $XCONF_LOG_FILE
                  echo_t "XCONF SCRIPT stateRedRecovery : $firmwareFilename " >> $XCONF_LOG_FILE
                  if ! validateFirmwareLocation "$firmware_URL"; then
-                     echo_t "Invalid firmware_URL: $(printf '%s' "$firmware_URL" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                     echo_t "Invalid firmware_URL: $(printf '%s' "$firmware_URL" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                      set_url_stat=1
                  elif ! validateFirmwareFilename "$firmwareFilename"; then
-                     echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                     echo_t "Invalid firmwareFilename: $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                      set_url_stat=1
                  else
                      XconfHttpDl set_http_url "$firmware_URL" "$firmwareFilename"
@@ -1495,10 +1495,10 @@ do
              else
                  cert="$(getStateRedCreds)"
                  if ! validateFirmwareLocation "$firmwareLocation"; then
-                     echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                     echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                      set_url_stat=1
                  elif ! validateFirmwareFilename "$firmwareFilename"; then
-                     echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                     echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                      set_url_stat=1
                  else
                      $BIN_PATH/XconfHttpDl set_http_url "$firmwareLocation/$firmwareFilename" "$firmwareFilename" complete_url --cert "$cert"
@@ -1509,10 +1509,10 @@ do
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmware_URL and NAME --- $firmwareFilename"
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmware_URL and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
               if ! validateFirmwareLocation "$firmware_URL"; then
-                  echo_t "Invalid firmware_URL $(printf '%s' "$firmware_URL" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmware_URL $(printf '%s' "$firmware_URL" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               elif ! validateFirmwareFilename "$firmwareFilename"; then
-                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               else
                   XconfHttpDl set_http_url "$firmware_URL" "$firmwareFilename"
@@ -1521,10 +1521,10 @@ do
 
           elif [ "$CERT" != "" ]; then
               if ! validateFirmwareLocation "$firmwareLocation"; then
-                  echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               elif ! validateFirmwareFilename "$firmwareFilename"; then
-                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               else
                   #Use the MTLS certificates for all platforms"
@@ -1537,10 +1537,10 @@ do
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
               echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
               if ! validateFirmwareLocation "$firmwareLocation"; then
-                  echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmwareLocation $(printf '%s' "$firmwareLocation" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               elif ! validateFirmwareFilename "$firmwareFilename"; then
-                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c '[:print:]' '?')" >> $XCONF_LOG_FILE
+                  echo_t "Invalid firmwareFilename $(printf '%s' "$firmwareFilename" | tr -c 'A-Za-z0-9._/: -' '?')" >> $XCONF_LOG_FILE
                   set_url_stat=1
               else
                   XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename"

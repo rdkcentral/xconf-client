@@ -192,14 +192,14 @@ checkFirmwareUpgCriteria()
     update_FW_Version=$firmwareVersion
     case "$current_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid current_FW_Version: $(printf '%s' "$current_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
     esac
     case "$update_FW_Version" in
         ''|*[!A-Za-z0-9._-]*)
-            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c '[:print:]' '?')" >> "$XCONF_LOG_FILE"
+            echo_t "Invalid update_FW_Version: $(printf '%s' "$update_FW_Version" | tr -c 'A-Za-z0-9._/: -' '?')" >> "$XCONF_LOG_FILE"
             rm -f /tmp/.downloadingfw
             exit 1
             ;;
